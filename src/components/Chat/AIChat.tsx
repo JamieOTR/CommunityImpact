@@ -1,20 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Send, X, Minimize2 } from 'lucide-react';
+import { MessageCircle, Send, X, Minimize2, Volume2 } from 'lucide-react';
 import { ChatMessage } from '../../types';
 import Button from '../UI/Button';
+import VoiceInput from './VoiceInput';
+import { aiService } from '../../lib/aiService';
+import { mockUser } from '../../utils/data';
 
 const initialMessages: ChatMessage[] = [
   {
     id: '1',
-    content: "Hi! I'm your AI assistant. I can help you find milestones, track your progress, and guide you through the community impact program. What would you like to know?",
+    content: "Hi! I'm your AI assistant. I can help you find milestones, track your progress, submit achievements via voice, and guide you through the community impact program. What would you like to know?",
     sender: 'ai',
     timestamp: new Date(),
     type: 'text',
     actions: [
       { id: '1', label: 'Find Milestones', action: 'find_milestones' },
       { id: '2', label: 'Check Progress', action: 'check_progress' },
-      { id: '3', label: 'Connect Wallet', action: 'connect_wallet' }
+      { id: '3', label: 'Voice Submission', action: 'voice_help' }
     ]
   }
 ];
@@ -35,67 +38,87 @@ export default function AIChat() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+  const handleSendMessage = async (messageText?: string, isVoice = false) => {
+    const text = messageText || inputValue;
+    if (!text.trim()) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      content: inputValue,
+      content: text,
       sender: 'user',
       timestamp: new Date(),
-      type: 'text'
+      type: isVoice ? 'voice' : 'text'
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: ChatMessage = {
+    try {
+      const response = await aiService.processMessage(mockUser.id, text);
+      
+      const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        content: getAIResponse(inputValue),
+        content: response.message,
+        sender: 'ai',
+        timestamp: new Date(),
+        type: 'text',
+        actions: response.suggestions?.map((suggestion, index) => ({
+          id: `suggestion-${index}`,
+          label: suggestion,
+          action: suggestion.toLowerCase().replace(/\s+/g, '_')
+        }))
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Failed to get AI response:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: "I'm sorry, I'm having trouble processing your request right now. Please try again later.",
         sender: 'ai',
         timestamp: new Date(),
         type: 'text'
       };
-      setMessages(prev => [...prev, aiResponse]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
-  };
-
-  const getAIResponse = (input: string): string => {
-    const lowerInput = input.toLowerCase();
-    
-    if (lowerInput.includes('milestone') || lowerInput.includes('goal')) {
-      return "I found several available milestones for you! The 'Organize Community Clean-up' milestone offers 150 IMPACT tokens and matches your environmental interests. Would you like me to help you get started with this one?";
-    } else if (lowerInput.includes('progress') || lowerInput.includes('status')) {
-      return "Great question! You're currently at 2,850 impact points with 12 completed milestones. You're 75% complete on the Community Clean-up milestone and 30% on the Youth Mentoring program. Keep up the excellent work!";
-    } else if (lowerInput.includes('wallet') || lowerInput.includes('connect')) {
-      return "I can help you connect your wallet! Click the wallet icon in the top navigation to connect your MetaMask or WalletConnect wallet. This will enable you to receive your IMPACT token rewards directly.";
-    } else if (lowerInput.includes('reward') || lowerInput.includes('token')) {
-      return "You've earned 1,420 IMPACT tokens so far! These tokens are automatically sent to your connected wallet when milestones are verified. Your pending rewards total 250 tokens from recent submissions.";
-    } else {
-      return "I'm here to help with your community impact journey! You can ask me about finding milestones, checking your progress, connecting your wallet, or understanding how rewards work. What specific area would you like to explore?";
     }
   };
 
-  const handleActionClick = (action: string) => {
+  const handleVoiceMessage = (transcription: string, isVoice: boolean) => {
+    handleSendMessage(transcription, isVoice);
+  };
+
+  const handleActionClick = async (action: string) => {
     const actionMessages = {
       find_milestones: "Here are some recommended milestones based on your interests and location. The Community Clean-up and Food Bank Volunteer opportunities are perfect for getting started!",
       check_progress: "You're doing amazing! You've completed 12 milestones and earned 1,420 IMPACT tokens. Your community rank is #23 out of 500+ participants.",
-      connect_wallet: "To connect your wallet, click the wallet icon in the header and follow the prompts. This will enable automatic reward distribution!"
+      voice_help: "You can use voice input to quickly submit milestone completions! Just click the microphone button and say something like 'I completed the community clean-up milestone' and I'll help you submit it with proper verification.",
+      connect_wallet: "To connect your wallet, click the wallet icon in the header and follow the prompts. This will enable automatic reward distribution!",
+      show_environmental_milestones: "I found 8 environmental milestones available in your area! These include tree planting, beach cleanups, and sustainable living challenges.",
+      view_detailed_progress: "Your detailed progress shows consistent growth across all impact areas. You're particularly strong in environmental and education categories."
     };
 
+    const responseText = actionMessages[action as keyof typeof actionMessages] || "I can help you with that! What specific information would you like?";
+    
     const aiMessage: ChatMessage = {
       id: Date.now().toString(),
-      content: actionMessages[action as keyof typeof actionMessages] || "I can help you with that!",
+      content: responseText,
       sender: 'ai',
       timestamp: new Date(),
       type: 'text'
     };
 
     setMessages(prev => [...prev, aiMessage]);
+  };
+
+  const speakMessage = async (message: string) => {
+    try {
+      await aiService.generateSpeechResponse(message);
+    } catch (error) {
+      console.error('Failed to speak message:', error);
+    }
   };
 
   return (
@@ -138,7 +161,7 @@ export default function AIChat() {
                 </div>
                 <div>
                   <h3 className="font-semibold">AI Assistant</h3>
-                  <p className="text-xs text-white/80">Always here to help</p>
+                  <p className="text-xs text-white/80">Voice & text support</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -173,7 +196,26 @@ export default function AIChat() {
                             : 'bg-white text-gray-800 shadow-sm border'
                         }`}
                       >
-                        <p className="text-sm">{message.content}</p>
+                        <div className="flex items-start justify-between">
+                          <p className="text-sm flex-1">{message.content}</p>
+                          {message.sender === 'ai' && (
+                            <button
+                              onClick={() => speakMessage(message.content)}
+                              className="ml-2 p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+                              title="Speak message"
+                            >
+                              <Volume2 className="w-3 h-3 text-gray-500" />
+                            </button>
+                          )}
+                        </div>
+                        
+                        {message.type === 'voice' && (
+                          <div className="flex items-center space-x-1 mt-1">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span className="text-xs text-blue-600">Voice message</span>
+                          </div>
+                        )}
+                        
                         {message.actions && (
                           <div className="mt-2 space-y-1">
                             {message.actions.map((action) => (
@@ -213,11 +255,15 @@ export default function AIChat() {
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                      placeholder="Ask me anything..."
+                      placeholder="Ask me anything or use voice..."
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
                     />
+                    <VoiceInput 
+                      onVoiceMessage={handleVoiceMessage}
+                      userId={mockUser.id}
+                    />
                     <Button
-                      onClick={handleSendMessage}
+                      onClick={() => handleSendMessage()}
                       disabled={!inputValue.trim()}
                       size="sm"
                       className="px-3"

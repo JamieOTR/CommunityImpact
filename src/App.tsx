@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Milestones from './pages/Milestones';
 import Community from './pages/Community';
 import Profile from './pages/Profile';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -59,6 +60,16 @@ function App() {
               </main>
               <Footer />
               <AIChat />
+            </>
+          } />
+
+          <Route path="/admin" element={
+            <>
+              <Header />
+              <main className="flex-1">
+                <AdminDashboard />
+              </main>
+              <Footer />
             </>
           } />
 

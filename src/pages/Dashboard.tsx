@@ -4,6 +4,9 @@ import ImpactMetrics from '../components/Dashboard/ImpactMetrics';
 import MilestonesGrid from '../components/Dashboard/MilestonesGrid';
 import TokenBalance from '../components/Dashboard/TokenBalance';
 import Leaderboard from '../components/Dashboard/Leaderboard';
+import RealtimeMetrics from '../components/Dashboard/RealtimeMetrics';
+import AdvancedCharts from '../components/Dashboard/AdvancedCharts';
+import WalletConnect from '../components/Blockchain/WalletConnect';
 import { mockUser } from '../utils/data';
 
 export default function Dashboard() {
@@ -34,9 +37,19 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
+        {/* Real-time Metrics */}
+        <div className="mb-8">
+          <RealtimeMetrics />
+        </div>
+
         {/* Impact Metrics */}
         <div className="mb-8">
           <ImpactMetrics />
+        </div>
+
+        {/* Advanced Charts */}
+        <div className="mb-8">
+          <AdvancedCharts />
         </div>
 
         {/* Main Grid */}
@@ -46,8 +59,9 @@ export default function Dashboard() {
             <MilestonesGrid />
           </div>
 
-          {/* Right Column - Token Balance & Leaderboard */}
+          {/* Right Column - Token Balance, Wallet & Leaderboard */}
           <div className="space-y-8">
+            <WalletConnect />
             <TokenBalance />
             <Leaderboard />
           </div>

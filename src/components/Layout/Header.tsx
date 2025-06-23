@@ -1,6 +1,6 @@
 import React, { Fragment } from 'react';
 import { Menu, Transition } from '@headlessui/react';
-import { Bell, Settings, LogOut, User, Wallet, ChevronDown } from 'lucide-react';
+import { Bell, Settings, LogOut, User, Wallet, ChevronDown, Shield } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { mockUser } from '../../utils/data';
 import clsx from 'clsx';
@@ -47,6 +47,16 @@ export default function Header() {
 
           {/* Right side */}
           <div className="flex items-center space-x-4">
+            {/* Admin Dashboard Link */}
+            <Link
+              to="/admin"
+              className="hidden sm:flex items-center space-x-2 text-gray-600 hover:text-primary-600 transition-colors"
+              title="Admin Dashboard"
+            >
+              <Shield className="w-4 h-4" />
+              <span className="text-sm font-medium">Admin</span>
+            </Link>
+
             {/* Notifications */}
             <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors">
               <Bell className="w-5 h-5" />
@@ -93,6 +103,20 @@ export default function Header() {
                       >
                         <User className="w-4 h-4 mr-3" />
                         Your Profile
+                      </Link>
+                    )}
+                  </Menu.Item>
+                  <Menu.Item>
+                    {({ active }) => (
+                      <Link
+                        to="/admin"
+                        className={clsx(
+                          active ? 'bg-gray-50' : '',
+                          'flex items-center px-4 py-2 text-sm text-gray-700'
+                        )}
+                      >
+                        <Shield className="w-4 h-4 mr-3" />
+                        Admin Dashboard
                       </Link>
                     )}
                   </Menu.Item>
