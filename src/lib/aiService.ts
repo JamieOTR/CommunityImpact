@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { databaseService } from './database';
 
 export interface AIResponse {
   message: string;
@@ -24,7 +25,7 @@ export class AIService {
       // Process the message and generate response
       const response = await this.generateResponse(message, userContext, context);
       
-      // Log the interaction
+      // Log the interaction to database
       await this.logInteraction(userId, message, response.message);
       
       return response;
@@ -39,20 +40,24 @@ export class AIService {
 
   private async getUserContext(userId: string) {
     try {
-      const { data: user } = await supabase
-        .from('users')
-        .select(`
-          *,
-          communities (name, description),
-          achievements (
-            *,
-            milestones (title, category, reward_amount)
-          )
-        `)
-        .eq('user_id', userId)
-        .single();
+      // Get user data from database
+      const user = await databaseService.getCurrentUser();
+      if (!user) return null;
 
-      return user;
+      // Get user's achievements and milestones
+      const [achievements, milestones, rewards] = await Promise.all([
+        databaseService.getUserAchievements(userId),
+        databaseService.getMilestones(userId),
+        databaseService.getUserRewards(userId)
+      ]);
+
+      return {
+        user,
+        achievements,
+        milestones,
+        rewards,
+        totalTokens: rewards.filter(r => r.status === 'confirmed').reduce((sum, r) => sum + r.token_amount, 0)
+      };
     } catch (error) {
       console.error('Failed to get user context:', error);
       return null;
@@ -104,8 +109,23 @@ export class AIService {
     return voiceIndicators.some(indicator => message.includes(indicator));
   }
 
-  private handleVoiceMilestoneSubmission(message: string, userContext: any): AIResponse {
+  private async handleVoiceMilestoneSubmission(message: string, userContext: any): Promise<AIResponse> {
     const timestamp = new Date().toLocaleString();
+    
+    // Log the voice submission attempt
+    if (userContext?.user) {
+      try {
+        await databaseService.logInteraction({
+          user_id: userContext.user.user_id,
+          message: `VOICE SUBMISSION: ${message}`,
+          ai_response: `Voice milestone submission logged at ${timestamp}`,
+          context_type: 'voice_milestone_submission',
+          session_id: this.sessionId
+        });
+      } catch (error) {
+        console.error('Failed to log voice submission:', error);
+      }
+    }
     
     return {
       message: `I heard you say: "${message}". I've logged your milestone submission at ${timestamp}. Please provide any evidence or additional details, and I'll help you submit it for verification. Would you like me to guide you through the submission process?`,
@@ -129,10 +149,12 @@ export class AIService {
 
   private handleMilestoneQuery(userContext: any): AIResponse {
     const completedCount = userContext?.achievements?.length || 0;
-    const communityName = userContext?.communities?.name || 'your community';
+    const availableMilestones = userContext?.milestones?.filter((m: any) => 
+      !userContext.achievements?.some((a: any) => a.milestone_id === m.milestone_id)
+    ) || [];
     
     return {
-      message: `I found several available milestones for you in ${communityName}! You've already completed ${completedCount} milestones. Here are some recommendations based on your interests and location.`,
+      message: `I found ${availableMilestones.length} available milestones for you! You've already completed ${completedCount} milestones. Here are some recommendations based on your interests and location.`,
       suggestions: [
         "Show environmental milestones",
         "Find education opportunities", 
@@ -142,16 +164,16 @@ export class AIService {
       actions: [
         {
           type: 'milestone',
-          data: { action: 'browse_available' }
+          data: { action: 'browse_available', available: availableMilestones.length }
         }
       ]
     };
   }
 
   private handleProgressQuery(userContext: any): AIResponse {
-    const totalScore = userContext?.total_impact_score || 0;
-    const tokenBalance = userContext?.token_balance || 0;
-    const completedMilestones = userContext?.achievements?.length || 0;
+    const totalScore = userContext?.user?.total_impact_score || 0;
+    const tokenBalance = userContext?.totalTokens || 0;
+    const completedMilestones = userContext?.achievements?.filter((a: any) => a.status === 'completed').length || 0;
     
     return {
       message: `You're doing amazing! Here's your current progress: ${totalScore.toLocaleString()} impact points, ${tokenBalance} IMPACT tokens earned, and ${completedMilestones} milestones completed. You're making a real difference in your community!`,
@@ -175,11 +197,11 @@ export class AIService {
   }
 
   private handleWalletQuery(userContext: any): AIResponse {
-    const hasWallet = userContext?.wallet_address;
+    const hasWallet = userContext?.user?.wallet_address;
     
     if (hasWallet) {
       return {
-        message: `Your wallet is connected! Address: ${userContext.wallet_address.slice(0, 6)}...${userContext.wallet_address.slice(-4)}. Your current balance is ${userContext.token_balance || 0} IMPACT tokens.`,
+        message: `Your wallet is connected! Address: ${userContext.user.wallet_address.slice(0, 6)}...${userContext.user.wallet_address.slice(-4)}. Your current balance is ${userContext.totalTokens || 0} IMPACT tokens.`,
         suggestions: [
           "View transaction history",
           "Check pending rewards",
@@ -207,11 +229,11 @@ export class AIService {
   }
 
   private handleCommunityQuery(userContext: any): AIResponse {
-    const communityName = userContext?.communities?.name;
+    const user = userContext?.user;
     
-    if (communityName) {
+    if (user?.community_id) {
       return {
-        message: `You're part of the ${communityName} community! This is a great place to collaborate on impactful projects and earn rewards together. Your community has been working on amazing initiatives.`,
+        message: `You're part of a community! This is a great place to collaborate on impactful projects and earn rewards together. Your community has been working on amazing initiatives.`,
         suggestions: [
           "View community programs",
           "See member leaderboard", 
@@ -233,8 +255,8 @@ export class AIService {
   }
 
   private handleRewardQuery(userContext: any): AIResponse {
-    const tokenBalance = userContext?.token_balance || 0;
-    const recentAchievements = userContext?.achievements?.slice(0, 3) || [];
+    const tokenBalance = userContext?.totalTokens || 0;
+    const recentRewards = userContext?.rewards?.slice(0, 3) || [];
     
     return {
       message: `You've earned ${tokenBalance} IMPACT tokens so far! These tokens are automatically sent to your connected wallet when milestones are verified. Your recent achievements have been making a real impact.`,
@@ -257,7 +279,7 @@ export class AIService {
   }
 
   private getDefaultResponse(userContext: any): AIResponse {
-    const name = userContext?.name?.split(' ')[0] || 'there';
+    const name = userContext?.user?.name?.split(' ')[0] || 'there';
     
     return {
       message: `Hi ${name}! I'm here to help with your community impact journey. You can ask me about finding milestones, checking your progress, connecting your wallet, or understanding how rewards work. What would you like to explore?`,
@@ -272,15 +294,13 @@ export class AIService {
 
   private async logInteraction(userId: string, message: string, response: string): Promise<void> {
     try {
-      await supabase
-        .from('interactions')
-        .insert({
-          user_id: userId,
-          message: message,
-          ai_response: response,
-          session_id: this.sessionId,
-          context_type: 'chat'
-        });
+      await databaseService.logInteraction({
+        user_id: userId,
+        message: message,
+        ai_response: response,
+        session_id: this.sessionId,
+        context_type: 'chat'
+      });
     } catch (error) {
       console.error('Failed to log interaction:', error);
     }

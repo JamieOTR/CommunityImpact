@@ -5,7 +5,7 @@ import { ChatMessage } from '../../types';
 import Button from '../UI/Button';
 import VoiceInput from './VoiceInput';
 import { aiService } from '../../lib/aiService';
-import { mockUser } from '../../utils/data';
+import { useAuth } from '../../hooks/useAuth';
 
 const initialMessages: ChatMessage[] = [
   {
@@ -23,6 +23,7 @@ const initialMessages: ChatMessage[] = [
 ];
 
 export default function AIChat() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -40,7 +41,7 @@ export default function AIChat() {
 
   const handleSendMessage = async (messageText?: string, isVoice = false) => {
     const text = messageText || inputValue;
-    if (!text.trim()) return;
+    if (!text.trim() || !user) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -55,7 +56,7 @@ export default function AIChat() {
     setIsTyping(true);
 
     try {
-      const response = await aiService.processMessage(mockUser.id, text);
+      const response = await aiService.processMessage(user.user_id, text);
       
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -91,12 +92,14 @@ export default function AIChat() {
   };
 
   const handleActionClick = async (action: string) => {
+    if (!user) return;
+
     const actionMessages = {
       find_milestones: "Here are some recommended milestones based on your interests and location. The Community Clean-up and Food Bank Volunteer opportunities are perfect for getting started!",
-      check_progress: "You're doing amazing! You've completed 12 milestones and earned 1,420 IMPACT tokens. Your community rank is #23 out of 500+ participants.",
+      check_progress: `You're doing amazing! You've completed milestones and earned ${user.token_balance} IMPACT tokens. Your community impact score is ${user.total_impact_score}.`,
       voice_help: "You can use voice input to quickly submit milestone completions! Just click the microphone button and say something like 'I completed the community clean-up milestone' and I'll help you submit it with proper verification.",
       connect_wallet: "To connect your wallet, click the wallet icon in the header and follow the prompts. This will enable automatic reward distribution!",
-      show_environmental_milestones: "I found 8 environmental milestones available in your area! These include tree planting, beach cleanups, and sustainable living challenges.",
+      show_environmental_milestones: "I found environmental milestones available in your area! These include tree planting, beach cleanups, and sustainable living challenges.",
       view_detailed_progress: "Your detailed progress shows consistent growth across all impact areas. You're particularly strong in environmental and education categories."
     };
 
@@ -120,6 +123,10 @@ export default function AIChat() {
       console.error('Failed to speak message:', error);
     }
   };
+
+  if (!user) {
+    return null; // Don't show chat if user is not loaded
+  }
 
   return (
     <>
@@ -260,7 +267,7 @@ export default function AIChat() {
                     />
                     <VoiceInput 
                       onVoiceMessage={handleVoiceMessage}
-                      userId={mockUser.id}
+                      userId={user.user_id}
                     />
                     <Button
                       onClick={() => handleSendMessage()}
