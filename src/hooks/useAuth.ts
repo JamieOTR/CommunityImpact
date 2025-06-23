@@ -81,7 +81,7 @@ export function useAuth() {
         const demoUser = await ensureSampleDataExists();
         if (demoUser) {
           setUser(demoUser);
-          return;
+          return { success: true };
         }
       }
 
@@ -90,13 +90,24 @@ export function useAuth() {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Provide user-friendly error messages
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid email or password. Please check your credentials and try again.');
+        } else if (error.message.includes('Email not confirmed')) {
+          throw new Error('Please verify your email address before signing in.');
+        } else {
+          throw error;
+        }
+      }
 
       if (data.user) {
         await loadUserData(data.user.id);
+        return { success: true };
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -107,12 +118,36 @@ export function useAuth() {
       setLoading(true);
       setError(null);
 
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Please enter a valid email address');
+      }
+
+      // Validate password strength
+      if (password.length < 8) {
+        throw new Error('Password must be at least 8 characters long');
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: name,
+          }
+        }
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('User already registered')) {
+          throw new Error('An account with this email already exists. Please sign in instead.');
+        } else if (error.message.includes('Password should be at least')) {
+          throw new Error('Password must be at least 6 characters long');
+        } else {
+          throw error;
+        }
+      }
 
       if (data.user) {
         // Create user profile
@@ -125,9 +160,93 @@ export function useAuth() {
         if (newUser) {
           setUser(newUser);
         }
+
+        // Check if email confirmation is required
+        if (!data.session) {
+          return { success: true, needsVerification: true };
+        }
+
+        return { success: true, needsVerification: false };
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        if (error.message.includes('User not found')) {
+          throw new Error('No account found with this email address');
+        } else {
+          throw error;
+        }
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset email');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyEmail = async (email: string, token: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'signup'
+      });
+
+      if (error) {
+        if (error.message.includes('Token has expired')) {
+          throw new Error('Verification code has expired. Please request a new one.');
+        } else if (error.message.includes('Invalid token')) {
+          throw new Error('Invalid verification code. Please check and try again.');
+        } else {
+          throw error;
+        }
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      setError(err.message || 'Failed to verify email');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (err: any) {
+      setError(err.message || 'Failed to update password');
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -142,10 +261,32 @@ export function useAuth() {
       if (error) throw error;
       
       setUser(null);
+      
+      // Clear any cached data
+      localStorage.removeItem('supabase.auth.token');
+      
+      return { success: true };
     } catch (err: any) {
       setError(err.message || 'Failed to sign out');
+      throw err;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshSession = async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) throw error;
+      
+      if (data.user) {
+        await loadUserData(data.user.id);
+      }
+      
+      return { success: true };
+    } catch (err: any) {
+      setError(err.message || 'Failed to refresh session');
+      throw err;
     }
   };
 
@@ -156,5 +297,10 @@ export function useAuth() {
     signIn,
     signUp,
     signOut,
+    resetPassword,
+    verifyEmail,
+    updatePassword,
+    refreshSession,
+    clearError: () => setError(null)
   };
 }
