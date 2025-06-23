@@ -76,6 +76,15 @@ export function useAuth() {
       setLoading(true);
       setError(null);
 
+      // For demo purposes, check if it's the demo credentials
+      if (email === 'demo@communityimpact.org' && password === 'demo123') {
+        const demoUser = await ensureSampleDataExists();
+        if (demoUser) {
+          setUser(demoUser);
+          return;
+        }
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -87,7 +96,7 @@ export function useAuth() {
         await loadUserData(data.user.id);
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to sign in');
     } finally {
       setLoading(false);
     }
@@ -118,7 +127,7 @@ export function useAuth() {
         }
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to create account');
     } finally {
       setLoading(false);
     }
@@ -127,11 +136,14 @@ export function useAuth() {
   const signOut = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
       setUser(null);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to sign out');
     } finally {
       setLoading(false);
     }

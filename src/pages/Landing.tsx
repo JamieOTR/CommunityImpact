@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Shield, Zap, Users, Award, CheckCircle, Star, Globe } from 'lucide-react';
+import { ArrowRight, Shield, Zap, Users, Award, CheckCircle, Star, Globe, LogIn } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
+import AuthModal from '../components/Auth/AuthModal';
+import { useAuth } from '../hooks/useAuth';
 
 const features = [
   {
@@ -60,6 +62,9 @@ const testimonials = [
 ];
 
 export default function Landing() {
+  const { user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -73,10 +78,24 @@ export default function Landing() {
               <span className="font-semibold text-gray-900 text-lg">Community Impact</span>
             </div>
             <div className="flex items-center space-x-4">
-              <Link to="/dashboard" className="text-gray-600 hover:text-primary-600 font-medium">
-                Sign In
-              </Link>
-              <Button>Get Started</Button>
+              {user ? (
+                <Link to="/dashboard">
+                  <Button>Go to Dashboard</Button>
+                </Link>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="text-gray-600 hover:text-primary-600 font-medium"
+                  >
+                    Sign In
+                  </button>
+                  <Button onClick={() => setShowAuthModal(true)}>
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Get Started
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -107,12 +126,23 @@ export default function Landing() {
               track your achievements, and build a verified legacy of positive change.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-              <Button size="lg" className="w-full sm:w-auto">
-                <Link to="/dashboard" className="flex items-center">
+              {user ? (
+                <Link to="/dashboard">
+                  <Button size="lg" className="w-full sm:w-auto">
+                    Go to Dashboard
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+              ) : (
+                <Button 
+                  size="lg" 
+                  className="w-full sm:w-auto"
+                  onClick={() => setShowAuthModal(true)}
+                >
                   Join Community
                   <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-              </Button>
+                </Button>
+              )}
               <Button variant="outline" size="lg" className="w-full sm:w-auto">
                 View Demo
               </Button>
@@ -301,12 +331,24 @@ export default function Landing() {
               Your contributions matter, and now they can be permanently recognized.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-              <Button size="lg" variant="secondary" className="bg-white text-primary-600 hover:bg-gray-50">
-                <Link to="/dashboard" className="flex items-center">
+              {user ? (
+                <Link to="/dashboard">
+                  <Button size="lg" variant="secondary" className="bg-white text-primary-600 hover:bg-gray-50">
+                    Go to Dashboard
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+              ) : (
+                <Button 
+                  size="lg" 
+                  variant="secondary" 
+                  className="bg-white text-primary-600 hover:bg-gray-50"
+                  onClick={() => setShowAuthModal(true)}
+                >
                   Get Started Free
                   <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-              </Button>
+                </Button>
+              )}
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-primary-600">
                 Learn More
               </Button>
@@ -314,6 +356,13 @@ export default function Landing() {
           </motion.div>
         </div>
       </section>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode="signin"
+      />
     </div>
   );
 }
