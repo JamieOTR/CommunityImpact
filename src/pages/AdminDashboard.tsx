@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Users, Settings, Plus, Share2, BarChart3, Award, Target, Coins } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import CommunityReferralManager from '../components/Admin/CommunityReferralManager';
 import { supabase } from '../lib/supabase';
-import { mockUser } from '../utils/data';
+import { useAuth } from '../hooks/useAuth';
+import { databaseService } from '../lib/database';
 
 interface Community {
   community_id: string;
@@ -23,6 +25,7 @@ interface CommunityStats {
 }
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [community, setCommunity] = useState<Community | null>(null);
   const [stats, setStats] = useState<CommunityStats>({
     totalMembers: 0,
@@ -33,56 +36,33 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchCommunityData();
-  }, []);
+    if (user) {
+      fetchCommunityData();
+    }
+  }, [user]);
 
   const fetchCommunityData = async () => {
+    if (!user) return;
+
     try {
       // Fetch community data where user is admin
       const { data: communityData } = await supabase
         .from('communities')
         .select('*')
-        .eq('admin_id', mockUser.id)
+        .eq('admin_id', user.user_id)
         .single();
 
       if (communityData) {
         setCommunity(communityData);
         
         // Fetch community statistics
-        const [programsResult, rewardsResult, achievementsResult] = await Promise.all([
-          supabase.from('programs').select('program_id', { count: 'exact', head: true }).eq('community_id', communityData.community_id),
-          supabase.from('rewards').select('token_amount').eq('status', 'confirmed'),
-          supabase.from('achievements').select('achievement_id', { count: 'exact', head: true }).eq('verification_status', 'verified')
-        ]);
-
-        const totalRewards = rewardsResult.data?.reduce((sum, reward) => sum + reward.token_amount, 0) || 0;
-
-        setStats({
-          totalMembers: communityData.member_count,
-          activePrograms: programsResult.count || 0,
-          totalRewards,
-          completedMilestones: achievementsResult.count || 0
-        });
+        const communityStats = await databaseService.getCommunityStats(communityData.community_id);
+        setStats(communityStats);
       }
     } catch (error) {
       console.error('Failed to fetch community data:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const copyReferralCode = () => {
-    if (community?.referral_code) {
-      navigator.clipboard.writeText(community.referral_code);
-      // You could add a toast notification here
-    }
-  };
-
-  const shareReferralLink = () => {
-    if (community?.referral_code) {
-      const shareUrl = `${window.location.origin}/join?code=${community.referral_code}`;
-      navigator.clipboard.writeText(shareUrl);
-      // You could add a toast notification here
     }
   };
 
@@ -260,47 +240,17 @@ export default function AdminDashboard() {
             </Card>
           </motion.div>
 
-          {/* Referral Code Panel */}
+          {/* Referral Management */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
             className="space-y-6"
           >
-            <Card>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Referral Code</h3>
-              <div className="text-center">
-                <div className="bg-primary-50 border-2 border-dashed border-primary-200 rounded-lg p-6 mb-4">
-                  <p className="text-sm text-gray-600 mb-2">Community Referral Code</p>
-                  <p className="text-2xl font-bold text-primary-600 font-mono tracking-wider">
-                    {community.referral_code}
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Button
-                    onClick={copyReferralCode}
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                  >
-                    Copy Code
-                  </Button>
-                  <Button
-                    onClick={shareReferralLink}
-                    size="sm"
-                    className="w-full"
-                  >
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share Link
-                  </Button>
-                </div>
-                
-                <p className="text-xs text-gray-500 mt-4">
-                  Share this code with new members to invite them to your community
-                </p>
-              </div>
-            </Card>
+            <CommunityReferralManager
+              communityId={community.community_id}
+              referralCode={community.referral_code}
+            />
 
             {/* Quick Actions */}
             <Card>
