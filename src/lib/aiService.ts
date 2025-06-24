@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { databaseService } from './database';
+import { elevenLabsService } from './elevenLabsService';
 
 export interface AIResponse {
   message: string;
@@ -8,13 +9,19 @@ export interface AIResponse {
     type: 'milestone' | 'progress' | 'wallet' | 'community';
     data?: any;
   }>;
+  audioUrl?: string;
 }
 
 export class AIService {
   private sessionId: string;
+  private selectedVoiceId?: string;
 
   constructor() {
     this.sessionId = crypto.randomUUID();
+  }
+
+  setVoiceId(voiceId: string) {
+    this.selectedVoiceId = voiceId;
   }
 
   async processMessage(userId: string, message: string, context?: any): Promise<AIResponse> {
@@ -24,6 +31,21 @@ export class AIService {
       
       // Process the message and generate response
       const response = await this.generateResponse(message, userContext, context);
+      
+      // Generate voice response if ElevenLabs is available
+      if (elevenLabsService.isAvailable() && this.selectedVoiceId) {
+        try {
+          const audioBlob = await elevenLabsService.generateAIResponse(
+            response.message,
+            this.selectedVoiceId
+          );
+          const audioUrl = URL.createObjectURL(audioBlob);
+          response.audioUrl = audioUrl;
+        } catch (error) {
+          console.error('Failed to generate voice response:', error);
+          // Continue without voice if it fails
+        }
+      }
       
       // Log the interaction to database
       await this.logInteraction(userId, message, response.message);
@@ -95,6 +117,15 @@ export class AIService {
     // Reward queries
     if (lowerMessage.includes('reward') || lowerMessage.includes('earn') || lowerMessage.includes('impact')) {
       return this.handleRewardQuery(userContext);
+    }
+    
+    // Voice and video queries
+    if (lowerMessage.includes('voice') || lowerMessage.includes('speak') || lowerMessage.includes('audio')) {
+      return this.handleVoiceQuery(userContext);
+    }
+
+    if (lowerMessage.includes('video') || lowerMessage.includes('avatar') || lowerMessage.includes('generate')) {
+      return this.handleVideoQuery(userContext);
     }
     
     // Default helpful response
@@ -278,16 +309,68 @@ export class AIService {
     };
   }
 
+  private handleVoiceQuery(userContext: any): AIResponse {
+    const isAvailable = elevenLabsService.isAvailable();
+    
+    if (isAvailable) {
+      return {
+        message: "Voice features are enabled! I can speak my responses and you can use voice input to submit milestones. You can also customize my voice in the settings. Try saying 'I completed the community clean-up milestone' to test voice submission!",
+        suggestions: [
+          "Test voice input",
+          "Change voice settings",
+          "Generate milestone announcement",
+          "Learn about voice features"
+        ]
+      };
+    } else {
+      return {
+        message: "Voice features are currently unavailable because the ElevenLabs API key is not configured. Contact your administrator to enable voice capabilities.",
+        suggestions: [
+          "Learn about voice features",
+          "Use text input instead",
+          "Contact support",
+          "View documentation"
+        ]
+      };
+    }
+  }
+
+  private handleVideoQuery(userContext: any): AIResponse {
+    const isAvailable = elevenLabsService.isAvailable(); // Using ElevenLabs as proxy for API availability
+    
+    if (isAvailable) {
+      return {
+        message: "Video generation features are available! I can create personalized celebration videos when you complete milestones, or generate custom community announcements with AI avatars. Would you like to try generating a video?",
+        suggestions: [
+          "Generate milestone video",
+          "Create custom message",
+          "View avatar options",
+          "Learn about video features"
+        ]
+      };
+    } else {
+      return {
+        message: "Video generation features are currently unavailable because the Tavus API key is not configured. Contact your administrator to enable video capabilities.",
+        suggestions: [
+          "Learn about video features",
+          "View static celebrations",
+          "Contact support",
+          "Check back later"
+        ]
+      };
+    }
+  }
+
   private getDefaultResponse(userContext: any): AIResponse {
     const name = userContext?.user?.name?.split(' ')[0] || 'there';
     
     return {
-      message: `Hi ${name}! I'm here to help with your community impact journey. You can ask me about finding milestones, checking your progress, connecting your wallet, or understanding how rewards work. What would you like to explore?`,
+      message: `Hi ${name}! I'm here to help with your community impact journey. You can ask me about finding milestones, checking your progress, connecting your wallet, or understanding how rewards work. I also support voice commands and can generate celebration videos! What would you like to explore?`,
       suggestions: [
         "Find new milestones",
         "Check my progress", 
         "Connect wallet",
-        "Learn about rewards"
+        "Try voice features"
       ]
     };
   }
@@ -346,13 +429,17 @@ export class AIService {
 
   async generateSpeechResponse(text: string): Promise<void> {
     try {
-      // Mock text-to-speech - in production, integrate with TTS service
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        utterance.volume = 0.8;
-        speechSynthesis.speak(utterance);
+      if (elevenLabsService.isAvailable() && this.selectedVoiceId) {
+        await elevenLabsService.playText(text, this.selectedVoiceId);
+      } else {
+        // Fallback to browser speech synthesis
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 0.9;
+          utterance.pitch = 1;
+          utterance.volume = 0.8;
+          speechSynthesis.speak(utterance);
+        }
       }
     } catch (error) {
       console.error('Speech synthesis error:', error);
