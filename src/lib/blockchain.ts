@@ -21,9 +21,18 @@ export class BlockchainService {
 
   async connectWallet(): Promise<string | null> {
     try {
-      if (typeof window.ethereum === 'undefined') {
+      // Check if window.ethereum exists and is properly initialized
+      if (typeof window.ethereum === 'undefined' || window.ethereum === null) {
         throw new Error('MetaMask is not installed');
       }
+
+      // Additional check to ensure MetaMask is properly initialized
+      if (!window.ethereum.isMetaMask) {
+        throw new Error('MetaMask is not properly initialized');
+      }
+
+      // Wait a bit to ensure MetaMask is fully loaded
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       this.provider = new ethers.BrowserProvider(window.ethereum);
       await this.provider.send("eth_requestAccounts", []);
