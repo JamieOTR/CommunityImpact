@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Lock, User, Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Mail, Lock, User, Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle, Smartphone, Wifi } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
 import { useAuth } from '../../hooks/useAuth';
@@ -196,6 +196,20 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
                     We've sent a confirmation link to <strong>{formData.email}</strong>. 
                     Click the link in your email to verify your account and complete the signup process.
                   </p>
+                  
+                  {/* Mobile-specific instructions */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start space-x-3">
+                      <Smartphone className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-amber-800 mb-1">📱 Mobile Users:</p>
+                        <p className="text-sm text-amber-700">
+                          If you're on mobile and the link doesn't work, try opening the email on the same device where you're browsing this website, or copy the link and paste it into your mobile browser.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                     <div className="flex items-start space-x-3">
                       <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -204,22 +218,32 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
                         <ol className="text-sm text-blue-700 space-y-1">
                           <li>1. Check your email inbox</li>
                           <li>2. Click the "Confirm your email" link</li>
-                          <li>3. You'll be redirected back to sign in</li>
+                          <li>3. You'll be redirected back to the app</li>
+                          <li>4. Sign in with your new account</li>
                         </ol>
                       </div>
                     </div>
                   </div>
+
                   <div className="space-y-3">
                     <p className="text-sm text-gray-500">
                       Didn't receive the email? Check your spam folder or try signing up again.
                     </p>
-                    <Button
-                      onClick={() => switchMode('signup')}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Try Again
-                    </Button>
+                    <div className="flex space-x-3">
+                      <Button
+                        onClick={() => switchMode('signup')}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        Try Again
+                      </Button>
+                      <Button
+                        onClick={() => switchMode('signin')}
+                        className="flex-1"
+                      >
+                        Sign In Instead
+                      </Button>
+                    </div>
                   </div>
                 </motion.div>
               )}

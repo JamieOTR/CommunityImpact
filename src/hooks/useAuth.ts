@@ -129,6 +129,17 @@ export function useAuth() {
         throw new Error('Password must be at least 8 characters long');
       }
 
+      // Get the current URL origin, but use a production-friendly fallback
+      const getRedirectUrl = () => {
+        // If we're in development and on localhost, use a more accessible URL
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          // Try to get the network IP if possible, otherwise use localhost
+          return `${window.location.protocol}//${window.location.hostname}:${window.location.port}/dashboard`;
+        }
+        // For production or other environments, use the current origin
+        return `${window.location.origin}/dashboard`;
+      };
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -136,7 +147,7 @@ export function useAuth() {
           data: {
             full_name: name,
           },
-          emailRedirectTo: `${window.location.origin}/dashboard`
+          emailRedirectTo: getRedirectUrl()
         }
       });
 
@@ -182,8 +193,16 @@ export function useAuth() {
       setLoading(true);
       setError(null);
 
+      // Get appropriate redirect URL for password reset
+      const getRedirectUrl = () => {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          return `${window.location.protocol}//${window.location.hostname}:${window.location.port}/reset-password`;
+        }
+        return `${window.location.origin}/reset-password`;
+      };
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: getRedirectUrl(),
       });
 
       if (error) {
