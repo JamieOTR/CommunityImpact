@@ -131,6 +131,21 @@ function App() {
             )
           } />
 
+          <Route path="/programs" element={
+            user ? (
+              <>
+                <Header />
+                <main className="flex-1">
+                  <Profile />
+                </main>
+                <Footer />
+                <AIChat />
+                <SessionManager />
+              </>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          } />
           <Route path="/admin" element={
             user ? (
               <>
