@@ -22,9 +22,9 @@ export function useAuth() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user) {
+        if (event === 'SIGNED_IN' && session?.user) {
           await loadUserData(session.user.id);
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setLoading(false);
         }
@@ -95,7 +95,7 @@ export function useAuth() {
         if (error.message.includes('Invalid login credentials')) {
           throw new Error('Invalid email or password. Please check your credentials and try again.');
         } else if (error.message.includes('Email not confirmed')) {
-          throw new Error('Please verify your email address before signing in.');
+          throw new Error('Please verify your email address before signing in. Check your inbox for a confirmation link.');
         } else {
           throw error;
         }
@@ -135,7 +135,8 @@ export function useAuth() {
         options: {
           data: {
             full_name: name,
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/dashboard`
         }
       });
 
@@ -150,23 +151,23 @@ export function useAuth() {
       }
 
       if (data.user) {
-        // Create user profile
-        const newUser = await databaseService.createUser({
-          email,
-          name,
-          auth_user_id: data.user.id,
-        });
+        // If user is immediately confirmed (email confirmation disabled)
+        if (data.session) {
+          // Create user profile
+          const newUser = await databaseService.createUser({
+            email,
+            name,
+            auth_user_id: data.user.id,
+          });
 
-        if (newUser) {
-          setUser(newUser);
-        }
-
-        // Check if email confirmation is required
-        if (!data.session) {
+          if (newUser) {
+            setUser(newUser);
+          }
+          return { success: true, needsVerification: false };
+        } else {
+          // Email confirmation required
           return { success: true, needsVerification: true };
         }
-
-        return { success: true, needsVerification: false };
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
@@ -196,36 +197,6 @@ export function useAuth() {
       return { success: true };
     } catch (err: any) {
       setError(err.message || 'Failed to send reset email');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verifyEmail = async (email: string, token: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'signup'
-      });
-
-      if (error) {
-        if (error.message.includes('Token has expired')) {
-          throw new Error('Verification code has expired. Please request a new one.');
-        } else if (error.message.includes('Invalid token')) {
-          throw new Error('Invalid verification code. Please check and try again.');
-        } else {
-          throw error;
-        }
-      }
-
-      return { success: true };
-    } catch (err: any) {
-      setError(err.message || 'Failed to verify email');
       throw err;
     } finally {
       setLoading(false);
@@ -298,7 +269,6 @@ export function useAuth() {
     signUp,
     signOut,
     resetPassword,
-    verifyEmail,
     updatePassword,
     refreshSession,
     clearError: () => setError(null)

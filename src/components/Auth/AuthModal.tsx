@@ -8,24 +8,22 @@ import { useAuth } from '../../hooks/useAuth';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialMode?: 'signin' | 'signup' | 'forgot-password' | 'verify-email';
+  initialMode?: 'signin' | 'signup' | 'forgot-password' | 'email-sent';
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: AuthModalProps) {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot-password' | 'verify-email'>(initialMode);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot-password' | 'email-sent'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     name: '',
-    confirmPassword: '',
-    verificationCode: ''
+    confirmPassword: ''
   });
   const [resetEmailSent, setResetEmailSent] = useState(false);
-  const [verificationSent, setVerificationSent] = useState(false);
 
-  const { signIn, signUp, resetPassword, verifyEmail, loading, error } = useAuth();
+  const { signIn, signUp, resetPassword, loading, error } = useAuth();
 
   const validatePassword = (password: string) => {
     const minLength = password.length >= 8;
@@ -61,8 +59,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
         }
         const result = await signUp(formData.email, formData.password, formData.name);
         if (result?.needsVerification) {
-          setMode('verify-email');
-          setVerificationSent(true);
+          setMode('email-sent');
         } else {
           onClose();
         }
@@ -72,9 +69,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
       } else if (mode === 'forgot-password') {
         await resetPassword(formData.email);
         setResetEmailSent(true);
-      } else if (mode === 'verify-email') {
-        await verifyEmail(formData.email, formData.verificationCode);
-        onClose();
       }
     } catch (err) {
       // Error handling is done in useAuth hook
@@ -91,9 +85,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
 
   const switchMode = (newMode: typeof mode) => {
     setMode(newMode);
-    setFormData({ email: '', password: '', name: '', confirmPassword: '', verificationCode: '' });
+    setFormData({ email: '', password: '', name: '', confirmPassword: '' });
     setResetEmailSent(false);
-    setVerificationSent(false);
   };
 
   const renderPasswordStrength = () => {
@@ -158,7 +151,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
               </button>
 
               {/* Back Button for sub-modes */}
-              {(mode === 'forgot-password' || mode === 'verify-email') && (
+              {(mode === 'forgot-password' || mode === 'email-sent') && (
                 <button
                   onClick={() => switchMode('signin')}
                   className="absolute top-4 left-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
@@ -176,18 +169,63 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
                   {mode === 'signin' && 'Welcome Back'}
                   {mode === 'signup' && 'Join Community Impact'}
                   {mode === 'forgot-password' && 'Reset Password'}
-                  {mode === 'verify-email' && 'Verify Email'}
+                  {mode === 'email-sent' && 'Check Your Email'}
                 </h2>
                 <p className="text-gray-600 mt-2">
                   {mode === 'signin' && 'Sign in to continue your impact journey'}
                   {mode === 'signup' && 'Start making a difference in your community'}
                   {mode === 'forgot-password' && 'Enter your email to receive reset instructions'}
-                  {mode === 'verify-email' && 'Enter the verification code sent to your email'}
+                  {mode === 'email-sent' && 'We sent you a confirmation link'}
                 </p>
               </div>
 
-              {/* Success Messages */}
-              {resetEmailSent && (
+              {/* Email Sent Success Message */}
+              {mode === 'email-sent' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center"
+                >
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Mail className="w-8 h-8 text-blue-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Verification Email Sent!
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    We've sent a confirmation link to <strong>{formData.email}</strong>. 
+                    Click the link in your email to verify your account and complete the signup process.
+                  </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-blue-800 mb-1">Next Steps:</p>
+                        <ol className="text-sm text-blue-700 space-y-1">
+                          <li>1. Check your email inbox</li>
+                          <li>2. Click the "Confirm your email" link</li>
+                          <li>3. You'll be redirected back to sign in</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-500">
+                      Didn't receive the email? Check your spam folder or try signing up again.
+                    </p>
+                    <Button
+                      onClick={() => switchMode('signup')}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Password Reset Success Message */}
+              {resetEmailSent && mode === 'forgot-password' && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -205,26 +243,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
                 </motion.div>
               )}
 
-              {verificationSent && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"
-                >
-                  <div className="flex items-center space-x-2">
-                    <Mail className="w-5 h-5 text-blue-500" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-800">Verification email sent!</p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        Please check your email and enter the verification code below.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
               {/* Error Message */}
-              {error && (
+              {error && mode !== 'email-sent' && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -237,32 +257,32 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
                 </motion.div>
               )}
 
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Name field for signup */}
-                {mode === 'signup' && (
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name *
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="Enter your full name"
-                      />
+              {/* Form - Only show if not in email-sent mode */}
+              {mode !== 'email-sent' && (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Name field for signup */}
+                  {mode === 'signup' && (
+                    <div>
+                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                        Full Name *
+                      </label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <input
+                          type="text"
+                          id="name"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          required
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          placeholder="Enter your full name"
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Email field */}
-                {mode !== 'verify-email' && (
+                  {/* Email field */}
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                       Email Address *
@@ -281,109 +301,85 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
                       />
                     </div>
                   </div>
-                )}
 
-                {/* Verification Code field */}
-                {mode === 'verify-email' && (
-                  <div>
-                    <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-2">
-                      Verification Code *
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input
-                        type="text"
-                        id="verificationCode"
-                        name="verificationCode"
-                        value={formData.verificationCode}
-                        onChange={handleInputChange}
-                        required
-                        maxLength={6}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-lg tracking-widest"
-                        placeholder="000000"
-                      />
+                  {/* Password field */}
+                  {(mode === 'signin' || mode === 'signup') && (
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                        Password *
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          id="password"
+                          name="password"
+                          value={formData.password}
+                          onChange={handleInputChange}
+                          required
+                          className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          placeholder="Enter your password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      {renderPasswordStrength()}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Password field */}
-                {(mode === 'signin' || mode === 'signup') && (
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                      Password *
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        id="password"
-                        name="password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="Enter your password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                      </button>
+                  {/* Confirm Password field */}
+                  {mode === 'signup' && (
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                        Confirm Password *
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          value={formData.confirmPassword}
+                          onChange={handleInputChange}
+                          required
+                          className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          placeholder="Confirm your password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                        <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
+                      )}
                     </div>
-                    {renderPasswordStrength()}
-                  </div>
-                )}
+                  )}
 
-                {/* Confirm Password field */}
-                {mode === 'signup' && (
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                      Confirm Password *
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="Confirm your password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                      </button>
-                    </div>
-                    {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                      <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
-                    )}
-                  </div>
-                )}
+                  {/* Submit Button */}
+                  <Button
+                    type="submit"
+                    loading={loading}
+                    className="w-full"
+                    size="lg"
+                    disabled={mode === 'signup' && !passwordValidation.isValid}
+                  >
+                    {mode === 'signin' && 'Sign In'}
+                    {mode === 'signup' && 'Create Account'}
+                    {mode === 'forgot-password' && 'Send Reset Email'}
+                  </Button>
+                </form>
+              )}
 
-                {/* Submit Button */}
-                <Button
-                  type="submit"
-                  loading={loading}
-                  className="w-full"
-                  size="lg"
-                  disabled={mode === 'signup' && !passwordValidation.isValid}
-                >
-                  {mode === 'signin' && 'Sign In'}
-                  {mode === 'signup' && 'Create Account'}
-                  {mode === 'forgot-password' && 'Send Reset Email'}
-                  {mode === 'verify-email' && 'Verify Email'}
-                </Button>
-              </form>
-
-              {/* Demo Credentials */}
+              {/* Demo Credentials - Only show for signin mode */}
               {mode === 'signin' && !resetEmailSent && (
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-700 font-medium mb-2">🚀 Demo Credentials:</p>
@@ -409,53 +405,40 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
                 </div>
               )}
 
-              {/* Action Links */}
-              <div className="mt-6 space-y-3">
-                {mode === 'signin' && (
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={() => switchMode('forgot-password')}
-                      className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-                    >
-                      Forgot your password?
-                    </button>
-                  </div>
-                )}
-
-                {mode === 'verify-email' && (
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Resend verification email logic would go here
-                        setVerificationSent(true);
-                      }}
-                      className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-                    >
-                      Resend verification code
-                    </button>
-                  </div>
-                )}
-
-                {/* Switch Mode */}
-                {(mode === 'signin' || mode === 'signup') && (
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">
-                      {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
+              {/* Action Links - Only show if not in email-sent mode */}
+              {mode !== 'email-sent' && (
+                <div className="mt-6 space-y-3">
+                  {mode === 'signin' && (
+                    <div className="text-center">
                       <button
                         type="button"
-                        onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
-                        className="ml-1 text-primary-600 hover:text-primary-700 font-medium"
+                        onClick={() => switchMode('forgot-password')}
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
                       >
-                        {mode === 'signin' ? 'Sign up' : 'Sign in'}
+                        Forgot your password?
                       </button>
-                    </p>
-                  </div>
-                )}
-              </div>
+                    </div>
+                  )}
 
-              {/* Terms and Privacy */}
+                  {/* Switch Mode */}
+                  {(mode === 'signin' || mode === 'signup') && (
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600">
+                        {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
+                        <button
+                          type="button"
+                          onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
+                          className="ml-1 text-primary-600 hover:text-primary-700 font-medium"
+                        >
+                          {mode === 'signin' ? 'Sign up' : 'Sign in'}
+                        </button>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Terms and Privacy - Only show for signup mode */}
               {mode === 'signup' && (
                 <div className="mt-4 text-center">
                   <p className="text-xs text-gray-500">

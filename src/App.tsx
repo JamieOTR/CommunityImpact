@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Layout/Header';
 import Footer from './components/Layout/Footer';
@@ -12,9 +12,38 @@ import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
 import ResetPassword from './pages/ResetPassword';
 import { useAuth } from './hooks/useAuth';
+import { supabase } from './lib/supabase';
+import { databaseService } from './lib/database';
 
 function App() {
   const { user, loading } = useAuth();
+
+  useEffect(() => {
+    // Handle email confirmation when user returns from email link
+    const handleEmailConfirmation = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (data.session?.user && !user) {
+        // User just confirmed their email, create their profile if it doesn't exist
+        try {
+          const existingUser = await databaseService.getCurrentUser();
+          if (!existingUser) {
+            // Create user profile from auth user data
+            const authUser = data.session.user;
+            await databaseService.createUser({
+              email: authUser.email!,
+              name: authUser.user_metadata?.full_name || authUser.email!.split('@')[0],
+              auth_user_id: authUser.id,
+            });
+          }
+        } catch (error) {
+          console.error('Error creating user profile after email confirmation:', error);
+        }
+      }
+    };
+
+    handleEmailConfirmation();
+  }, [user]);
 
   if (loading) {
     return (
