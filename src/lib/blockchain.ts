@@ -1,6 +1,22 @@
 import { ethers } from 'ethers';
 
-// Mock smart contract ABI for IMPACT token
+/**
+ * Blockchain Integration for IMPACT Token
+ *
+ * DEMO MODE: This implementation uses mock contract addresses for demonstration purposes.
+ *
+ * For Production Deployment:
+ * 1. Deploy IMPACT token smart contract to desired network (Ethereum, BSC, Polygon)
+ * 2. Deploy Achievement Verification contract
+ * 3. Update environment variables with real contract addresses:
+ *    - VITE_IMPACT_TOKEN_ADDRESS
+ *    - VITE_ACHIEVEMENT_VERIFICATION_ADDRESS
+ *    - VITE_BLOCKCHAIN_NETWORK (mainnet, goerli, bsc, polygon)
+ * 4. Configure appropriate RPC URLs for your network
+ * 5. Test thoroughly on testnet before mainnet deployment
+ */
+
+// Smart contract ABI for IMPACT token
 const IMPACT_TOKEN_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
   "function transfer(address to, uint256 amount) returns (bool)",
@@ -8,11 +24,14 @@ const IMPACT_TOKEN_ABI = [
   "event TokensDistributed(address recipient, uint256 amount, string milestone)"
 ];
 
-// Mock contract addresses (replace with actual deployed contracts)
+// Contract addresses - using environment variables with demo fallback
 const CONTRACTS = {
-  IMPACT_TOKEN: '0x742d35Cc6634C0532925a3b8D8C9D2E9e2cF3456',
-  ACHIEVEMENT_VERIFICATION: '0x123d35Cc6634C0532925a3b8D8C9D2E9e2cF7890'
+  IMPACT_TOKEN: import.meta.env.VITE_IMPACT_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000',
+  ACHIEVEMENT_VERIFICATION: import.meta.env.VITE_ACHIEVEMENT_VERIFICATION_ADDRESS || '0x0000000000000000000000000000000000000000'
 };
+
+// Check if we're in demo mode (no real contracts deployed)
+const IS_DEMO_MODE = CONTRACTS.IMPACT_TOKEN === '0x0000000000000000000000000000000000000000';
 
 export class BlockchainService {
   private provider: ethers.BrowserProvider | null = null;
@@ -54,6 +73,12 @@ export class BlockchainService {
 
   async getTokenBalance(address: string): Promise<number> {
     try {
+      // In demo mode, return 0 as balance should be tracked in database
+      if (IS_DEMO_MODE) {
+        console.log('Demo mode: Token balance tracked in database');
+        return 0;
+      }
+
       if (!this.impactTokenContract) {
         await this.connectWallet();
       }
@@ -72,6 +97,14 @@ export class BlockchainService {
 
   async distributeReward(recipientAddress: string, amount: number, milestoneTitle: string): Promise<string | null> {
     try {
+      // In demo mode, simulate transaction and return mock hash
+      if (IS_DEMO_MODE) {
+        console.log('Demo mode: Simulating reward distribution', { recipientAddress, amount, milestoneTitle });
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+        // Return a mock transaction hash
+        return '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      }
+
       if (!this.impactTokenContract || !this.signer) {
         await this.connectWallet();
       }
@@ -126,6 +159,21 @@ export class BlockchainService {
       return null;
     }
   }
+
+  isDemoMode(): boolean {
+    return IS_DEMO_MODE;
+  }
+
+  getContractAddresses() {
+    return {
+      impactToken: CONTRACTS.IMPACT_TOKEN,
+      achievementVerification: CONTRACTS.ACHIEVEMENT_VERIFICATION,
+      isDemoMode: IS_DEMO_MODE
+    };
+  }
 }
 
 export const blockchainService = new BlockchainService();
+
+// Export constants for external use
+export { IS_DEMO_MODE, CONTRACTS };

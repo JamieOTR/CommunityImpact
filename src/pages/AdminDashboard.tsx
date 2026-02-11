@@ -4,6 +4,7 @@ import { Users, Settings, Plus, Share2, BarChart3, Award, Target, Coins } from '
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import CommunityReferralManager from '../components/Admin/CommunityReferralManager';
+import AchievementVerification from '../components/Admin/AchievementVerification';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { databaseService } from '../lib/database';
@@ -178,6 +179,16 @@ export default function AdminDashboard() {
               </Card>
             ))}
           </div>
+        </motion.div>
+
+        {/* Achievement Verification */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <AchievementVerification />
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
