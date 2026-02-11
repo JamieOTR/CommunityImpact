@@ -1,35 +1,213 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Card from '../UI/Card';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 
-const impactTrendData = [
-  { month: 'Jan', score: 1200, tokens: 450, milestones: 8 },
-  { month: 'Feb', score: 1450, tokens: 620, milestones: 12 },
-  { month: 'Mar', score: 1800, tokens: 890, milestones: 18 },
-  { month: 'Apr', score: 2100, tokens: 1150, milestones: 22 },
-  { month: 'May', score: 2450, tokens: 1420, milestones: 28 },
-  { month: 'Jun', score: 2850, tokens: 1680, milestones: 35 }
-];
+interface ChartData {
+  impactTrend: Array<{ month: string; score: number; tokens: number; milestones: number }>;
+  categoryData: Array<{ name: string; value: number; color: string }>;
+  weeklyActivity: Array<{ day: string; activities: number; rewards: number }>;
+}
 
-const categoryData = [
-  { name: 'Environment', value: 35, color: '#10b981' },
-  { name: 'Education', value: 28, color: '#3b82f6' },
-  { name: 'Social Support', value: 22, color: '#f59e0b' },
-  { name: 'Health', value: 15, color: '#ef4444' }
-];
-
-const weeklyActivityData = [
-  { day: 'Mon', activities: 12, rewards: 340 },
-  { day: 'Tue', activities: 19, rewards: 520 },
-  { day: 'Wed', activities: 8, rewards: 180 },
-  { day: 'Thu', activities: 15, rewards: 420 },
-  { day: 'Fri', activities: 22, rewards: 680 },
-  { day: 'Sat', activities: 28, rewards: 850 },
-  { day: 'Sun', activities: 16, rewards: 480 }
-];
+const CATEGORY_COLORS: Record<string, string> = {
+  environment: '#10b981',
+  education: '#3b82f6',
+  social: '#f59e0b',
+  health: '#ef4444',
+  community: '#8b5cf6',
+  other: '#6b7280'
+};
 
 export default function AdvancedCharts() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [chartData, setChartData] = useState<ChartData>({
+    impactTrend: [],
+    categoryData: [],
+    weeklyActivity: []
+  });
+
+  useEffect(() => {
+    if (user) {
+      fetchChartData();
+    }
+  }, [user]);
+
+  const fetchChartData = async () => {
+    try {
+      setLoading(true);
+
+      const [achievementsRes, rewardsRes, milestonesRes] = await Promise.all([
+        supabase
+          .from('achievements')
+          .select('completed_at, milestone_id, milestones(category)')
+          .eq('user_id', user?.user_id)
+          .eq('status', 'completed')
+          .order('completed_at', { ascending: true }),
+        supabase
+          .from('rewards')
+          .select('token_amount, distributed_at')
+          .eq('user_id', user?.user_id)
+          .eq('status', 'confirmed')
+          .order('distributed_at', { ascending: true }),
+        supabase
+          .from('achievements')
+          .select('completed_at, milestone_id, milestones(category)')
+          .eq('user_id', user?.user_id)
+          .gte('completed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      ]);
+
+      const achievements = achievementsRes.data || [];
+      const rewards = rewardsRes.data || [];
+      const weeklyAchievements = milestonesRes.data || [];
+
+      const impactTrend = processImpactTrend(achievements, rewards);
+      const categoryData = processCategoryData(achievements);
+      const weeklyActivity = processWeeklyActivity(weeklyAchievements, rewards);
+
+      setChartData({
+        impactTrend,
+        categoryData,
+        weeklyActivity
+      });
+    } catch (error) {
+      console.error('Failed to fetch chart data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processImpactTrend = (achievements: any[], rewards: any[]) => {
+    const monthlyData: Record<string, { score: number; tokens: number; milestones: number }> = {};
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const date = new Date();
+      date.setMonth(date.getMonth() - (5 - i));
+      return {
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+        month: monthNames[date.getMonth()]
+      };
+    });
+
+    last6Months.forEach(({ key, month }) => {
+      monthlyData[month] = { score: 0, tokens: 0, milestones: 0 };
+    });
+
+    achievements.forEach(achievement => {
+      if (achievement.completed_at) {
+        const date = new Date(achievement.completed_at);
+        const month = monthNames[date.getMonth()];
+        if (monthlyData[month]) {
+          monthlyData[month].milestones += 1;
+          monthlyData[month].score += 100;
+        }
+      }
+    });
+
+    rewards.forEach(reward => {
+      if (reward.distributed_at) {
+        const date = new Date(reward.distributed_at);
+        const month = monthNames[date.getMonth()];
+        if (monthlyData[month]) {
+          monthlyData[month].tokens += reward.token_amount || 0;
+        }
+      }
+    });
+
+    let cumulativeScore = 0;
+    let cumulativeTokens = 0;
+    let cumulativeMilestones = 0;
+
+    return last6Months.map(({ month }) => {
+      cumulativeScore += monthlyData[month]?.score || 0;
+      cumulativeTokens += monthlyData[month]?.tokens || 0;
+      cumulativeMilestones += monthlyData[month]?.milestones || 0;
+
+      return {
+        month,
+        score: cumulativeScore,
+        tokens: cumulativeTokens,
+        milestones: cumulativeMilestones
+      };
+    });
+  };
+
+  const processCategoryData = (achievements: any[]) => {
+    const categoryCounts: Record<string, number> = {};
+    let total = 0;
+
+    achievements.forEach(achievement => {
+      const category = achievement.milestones?.category?.toLowerCase() || 'other';
+      categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+      total += 1;
+    });
+
+    if (total === 0) {
+      return [
+        { name: 'No Data Yet', value: 100, color: '#e2e8f0' }
+      ];
+    }
+
+    return Object.entries(categoryCounts).map(([name, count]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      value: Math.round((count / total) * 100),
+      color: CATEGORY_COLORS[name] || CATEGORY_COLORS.other
+    }));
+  };
+
+  const processWeeklyActivity = (achievements: any[], rewards: any[]) => {
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const weeklyData: Record<string, { activities: number; rewards: number }> = {};
+
+    dayNames.forEach(day => {
+      weeklyData[day] = { activities: 0, rewards: 0 };
+    });
+
+    achievements.forEach(achievement => {
+      if (achievement.completed_at) {
+        const date = new Date(achievement.completed_at);
+        const day = dayNames[date.getDay()];
+        weeklyData[day].activities += 1;
+      }
+    });
+
+    const recentRewards = rewards.filter(r => {
+      if (!r.distributed_at) return false;
+      const distributedDate = new Date(r.distributed_at);
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      return distributedDate >= weekAgo;
+    });
+
+    recentRewards.forEach(reward => {
+      if (reward.distributed_at) {
+        const date = new Date(reward.distributed_at);
+        const day = dayNames[date.getDay()];
+        weeklyData[day].rewards += reward.token_amount || 0;
+      }
+    });
+
+    return dayNames.slice(1).concat(dayNames[0]).map(day => ({
+      day,
+      activities: weeklyData[day].activities,
+      rewards: weeklyData[day].rewards
+    }));
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Impact Trend Chart */}
@@ -41,7 +219,7 @@ export default function AdvancedCharts() {
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Impact Growth Trend</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={impactTrendData}>
+              <AreaChart data={chartData.impactTrend}>
                 <defs>
                   <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
@@ -98,7 +276,7 @@ export default function AdvancedCharts() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={categoryData}
+                    data={chartData.categoryData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -106,7 +284,7 @@ export default function AdvancedCharts() {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {categoryData.map((entry, index) => (
+                    {chartData.categoryData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -122,7 +300,7 @@ export default function AdvancedCharts() {
               </ResponsiveContainer>
             </div>
             <div className="grid grid-cols-2 gap-4 mt-4">
-              {categoryData.map((category) => (
+              {chartData.categoryData.map((category) => (
                 <div key={category.name} className="flex items-center space-x-2">
                   <div 
                     className="w-3 h-3 rounded-full"
@@ -146,7 +324,7 @@ export default function AdvancedCharts() {
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Weekly Activity</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weeklyActivityData}>
+                <BarChart data={chartData.weeklyActivity}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="day" stroke="#64748b" />
                   <YAxis stroke="#64748b" />
@@ -180,7 +358,7 @@ export default function AdvancedCharts() {
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Milestone Completion Rate</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={impactTrendData}>
+              <LineChart data={chartData.impactTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="month" stroke="#64748b" />
                 <YAxis stroke="#64748b" />
