@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Volume2, Settings, Play, Pause, RefreshCw } from 'lucide-react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
-import { elevenLabsService, type ElevenLabsVoice } from '../../lib/elevenLabsService';
+import { elevenLabsService, type ElevenLabsVoice } from '../../services/elevenLabsService';
 
 interface VoiceSettingsProps {
   onVoiceChange?: (voiceId: string) => void;

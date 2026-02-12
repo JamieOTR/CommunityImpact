@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, Target, Zap, RefreshCw } from 'lucide-react';
 import Card from '../UI/Card';
-import { supabase } from '../../lib/supabase';
+import { databaseService } from '../../services/database';
+import { useAuth } from '../../hooks/useAuth';
 
 interface MetricData {
   totalUsers: number;
@@ -12,53 +13,34 @@ interface MetricData {
   lastUpdated: Date;
 }
 
-export default function RealtimeMetrics() {
+export default function RealTimeMetrics() {
+  const { user } = useAuth();
   const [metrics, setMetrics] = useState<MetricData>({
-    totalUsers: 10247,
-    activeMilestones: 1856,
-    tokensDistributed: 250000,
-    communityGrowth: 12.5,
+    totalUsers: 0,
+    activeMilestones: 0,
+    tokensDistributed: 0,
+    communityGrowth: 0,
     lastUpdated: new Date()
   });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    fetchMetrics();
-    
-    // Set up real-time subscription
-    const subscription = supabase
-      .channel('metrics_updates')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'users' },
-        () => fetchMetrics()
-      )
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'achievements' },
-        () => fetchMetrics()
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+    if (user?.community_id) {
+      fetchMetrics();
+    }
+  }, [user?.community_id]);
 
   const fetchMetrics = async () => {
+    if (!user?.community_id) return;
+
     setIsLoading(true);
     try {
-      // Fetch real metrics from database
-      const [usersResult, achievementsResult, rewardsResult] = await Promise.all([
-        supabase.from('users').select('user_id', { count: 'exact', head: true }),
-        supabase.from('achievements').select('achievement_id', { count: 'exact', head: true }),
-        supabase.from('rewards').select('token_amount').eq('status', 'confirmed')
-      ]);
-
-      const totalTokens = rewardsResult.data?.reduce((sum, reward) => sum + reward.token_amount, 0) || 0;
-
+      const stats = await databaseService.getCommunityStats(user.community_id);
+      
       setMetrics({
-        totalUsers: usersResult.count || 0,
-        activeMilestones: achievementsResult.count || 0,
-        tokensDistributed: totalTokens,
+        totalUsers: stats.totalMembers,
+        activeMilestones: stats.activePrograms,
+        tokensDistributed: stats.totalRewards,
         communityGrowth: 12.5, // This would be calculated based on time-series data
         lastUpdated: new Date()
       });
@@ -71,7 +53,7 @@ export default function RealtimeMetrics() {
 
   const metricCards = [
     {
-      title: 'Total Users',
+      title: 'Community Members',
       value: metrics.totalUsers.toLocaleString(),
       change: `+${metrics.communityGrowth}%`,
       icon: Users,
@@ -79,7 +61,7 @@ export default function RealtimeMetrics() {
       bgColor: 'bg-blue-50'
     },
     {
-      title: 'Active Milestones',
+      title: 'Active Programs',
       value: metrics.activeMilestones.toLocaleString(),
       change: '+8.2%',
       icon: Target,
@@ -88,7 +70,7 @@ export default function RealtimeMetrics() {
     },
     {
       title: 'Tokens Distributed',
-      value: `${(metrics.tokensDistributed / 1000).toFixed(0)}K`,
+      value: `${(metrics.tokensDistributed / 1000).toFixed(1)}K`,
       change: '+15.3%',
       icon: Zap,
       color: 'text-yellow-600',
@@ -107,7 +89,7 @@ export default function RealtimeMetrics() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">Real-time Metrics</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Real-time Community Metrics</h2>
         <div className="flex items-center space-x-4">
           <span className="text-sm text-gray-500">
             Last updated: {metrics.lastUpdated.toLocaleTimeString()}
@@ -145,7 +127,6 @@ export default function RealtimeMetrics() {
                 </div>
               </div>
               
-              {/* Animated background effect */}
               <motion.div
                 className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-primary-500 to-secondary-500"
                 initial={{ width: 0 }}

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Wallet, ExternalLink, CheckCircle, AlertCircle, Copy } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
-import { blockchainService } from '../../lib/blockchain';
+import { blockchainService } from '../../services/blockchain';
 
 interface WalletConnectProps {
   onWalletConnected?: (address: string) => void;

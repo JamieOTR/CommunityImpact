@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Eye, Clock, AlertCircle } from 'lucide-react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Card from '../UI/Card';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 
 interface ChartData {

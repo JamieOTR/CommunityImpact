@@ -1,10 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import WalletConnect from '../../components/Blockchain/WalletConnect';
-import { blockchainService } from '../../lib/blockchain';
+import { blockchainService } from '../../services/blockchain';
 
 // Mock the blockchain service
-vi.mock('../../lib/blockchain', () => ({
+vi.mock('../../services/blockchain', () => ({
   blockchainService: {
     connectWallet: vi.fn(),
     isWalletConnected: vi.fn(),

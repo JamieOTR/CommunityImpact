@@ -12,8 +12,8 @@ import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
 import ResetPassword from './pages/ResetPassword';
 import { useAuth } from './hooks/useAuth';
-import { supabase } from './lib/supabase';
-import { databaseService } from './lib/database';
+import { supabase } from './services/supabase';
+import { databaseService } from './services/database';
 
 function App() {
   const { user, loading } = useAuth();
