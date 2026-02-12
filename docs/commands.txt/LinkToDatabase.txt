@@ -1,0 +1,141 @@
+ijfie@KnubianWarrior MINGW64 /c/Data/Cousin Ingrid/Git Hub/Community (feature/community-admin)
+$ git add . && git commit -m "feat(admin): Initial setup for Community Admin Dashboard (Task 11)"
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.cursor/mcp.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.cursor/rules/cursor_rules.mdc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.cursor/rules/dev_workflow.mdc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.cursor/rules/self_improve.mdc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.cursor/rules/taskmaster.mdc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules-architect/architect-rules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules-ask/ask-rules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules-boomerang/boomerang-rules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules-code/code-rules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules-debug/debug-rules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules-test/test-rules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules/dev_workflow.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules/roo_rules.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules/self_improve.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roo/rules/taskmaster.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.roomodes', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.taskmaster/config.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.taskmaster/state.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.taskmaster/tasks/tasks.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.taskmaster/templates/example_prd.txt', LF will be replaced by CRLF the next time Git touches it       
+warning: in the working copy of '.windsurfrules', LF will be replaced by CRLF the next time Git touches it
+[feature/community-admin e69cfa8] feat(admin): Initial setup for Community Admin Dashboard (Task 11)
+ 27 files changed, 3809 insertions(+), 4 deletions(-)
+ create mode 100644 .cursor/mcp.json
+ create mode 100644 .cursor/rules/cursor_rules.mdc
+ create mode 100644 .cursor/rules/dev_workflow.mdc
+ create mode 100644 .cursor/rules/self_improve.mdc
+ create mode 100644 .cursor/rules/taskmaster.mdc
+ create mode 100644 .roo/rules-architect/architect-rules
+ create mode 100644 .roo/rules-ask/ask-rules
+ create mode 100644 .roo/rules-boomerang/boomerang-rules
+ create mode 100644 .roo/rules-code/code-rules
+ create mode 100644 .roo/rules-debug/debug-rules
+ create mode 100644 .roo/rules-test/test-rules
+ create mode 100644 .roo/rules/dev_workflow.md
+ create mode 100644 .roo/rules/roo_rules.md
+ create mode 100644 .roo/rules/self_improve.md
+ create mode 100644 .roo/rules/taskmaster.md
+ create mode 100644 .roomodes
+ create mode 100644 .taskmaster/config.json
+ create mode 100644 .taskmaster/state.json
+ create mode 100644 .taskmaster/tasks/tasks.json
+ create mode 100644 .taskmaster/templates/example_prd.txt
+ create mode 100644 .windsurfrules
+ create mode 100644 docs/APP_FLOW.md
+ create mode 100644 scripts/prd.txt
+ create mode 100644 src/pages/AdminDashboard.tsx
+
+ijfie@KnubianWarrior MINGW64 /c/Data/Cousin Ingrid/Git Hub/Community (feature/community-admin)
+$ supabase link
+2025/06/21 01:52:22 Access token not provided. Supply an access token by running supabase login or setting the SUPABASE_ACCESS_TOKEN environment variable.
+
+ijfie@KnubianWarrior MINGW64 /c/Data/Cousin Ingrid/Git Hub/Community (feature/community-admin)
+$ npx supabase link --project-ref xzfiaosmflflmuckbfnz
+2025/06/21 13:12:30 Access token not provided. Supply an access token by running supabase login or setting the SUPABASE_ACCESS_TOKEN environment variable.
+
+ijfie@KnubianWarrior MINGW64 /c/Data/Cousin Ingrid/Git Hub/Community (feature/community-admin)
+$ supabase login
+Hello from Supabase! Press Enter to open browser and login automatically.
+
+Here is your login link in case browser did not open https://supabase.com/dashboard/cli/login?session_id=e88f3d6a-c697-4506-b4e6-82ebe81e58fb&token_name=cli_KNUBIANWARRIOR\ijfie@KnubianWarrior_1750536827&public_key=047492d0f9d0054e6be000a9d4edc521bd66de6a5d6c5c8a995bce7bb25b75b0557c810d72ce30f8589e7846f0448b170707bb44a664d1818000bde94e6064c714
+
+Enter your verification code: 9132a263
+Token cli_KNUBIANWARRIOR\ijfie@KnubianWarrior_1750536827 created successfully.
+
+You are now logged in. Happy coding!
+A new version of Supabase CLI is available: v2.26.9 (currently installed v2.20.5)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+
+ijfie@KnubianWarrior MINGW64 /c/Data/Cousin Ingrid/Git Hub/Community (feature/community-admin)
+$ npx supabase link --project-ref xzfiaosmflflmuckbfnz
+Enter your database password (or leave blank to skip): 
+Connecting to remote database...
+failed to connect to postgres: failed to connect to `host=aws-0-us-east-2.pooler.supabase.com user=postgres.xzfiaosmflflmuckbfnz database=postgres`: failed SASL auth (invalid SCRAM server-final-message received from server)
+Try rerunning the command with --debug to troubleshoot the error.
+
+ijfie@KnubianWarrior MINGW64 /c/Data/Cousin Ingrid/Git Hub/Community (feature/community-admin)
+$ npx supabase link --project-ref xzfiaosmflflmuckbfnz
+Enter your database password (or leave blank to skip): 
+Connecting to remote database...
+NOTICE (42P06): schema "supabase_migrations" already exists, skipping
+NOTICE (42P07): relation "schema_migrations" already exists, skipping
+NOTICE (42701): column "statements" of relation "schema_migrations" already exists, skipping
+NOTICE (42701): column "name" of relation "schema_migrations" already exists, skipping
+NOTICE (42P06): schema "supabase_migrations" already exists, skipping
+Finished supabase link.
+WARNING: Local config differs from linked project. Try updating supabase\config.toml
+diff supabase\config.toml xzfiaosmflflmuckbfnz
+--- supabase\config.toml
++++ xzfiaosmflflmuckbfnz
+@@ -13,7 +13,7 @@
+ [db]
+ port = 54322
+ shadow_port = 54320
+-major_version = 17
++major_version = 15
+ root_key = ""
+ [db.pooler]
+ enabled = false
+@@ -54,8 +54,8 @@
+
+ [auth]
+ enabled = true
+-site_url = "http://127.0.0.1:3000"
+-additional_redirect_urls = ["https://127.0.0.1:3000"]
++site_url = "http://localhost:3000"
++additional_redirect_urls = []
+ jwt_expiry = 3600
+ enable_refresh_token_rotation = true
+ refresh_token_reuse_interval = 10
+@@ -79,8 +79,8 @@
+ [auth.mfa]
+ max_enrolled_factors = 10
+ [auth.mfa.totp]
+-enroll_enabled = false
+-verify_enabled = false
++enroll_enabled = true
++verify_enabled = true
+ [auth.mfa.phone]
+ enroll_enabled = false
+ verify_enabled = false
+@@ -98,9 +98,9 @@
+ double_confirm_changes = true
+ enable_confirmations = false
+ secure_password_change = false
+-max_frequency = "1s"
+-otp_length = 6
+-otp_expiry = 3600
++max_frequency = "1m0s"
++otp_length = 6
++otp_expiry = 86400
+ [auth.email.template]
+ [auth.sms]
+ enable_signup = false
+
+
+ijfie@KnubianWarrior MINGW64 /c/Data/Cousin Ingrid/Git Hub/Community (feature/community-admin)
+$
