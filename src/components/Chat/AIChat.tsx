@@ -4,7 +4,7 @@ import { MessageCircle, Send, X, Minimize2, Volume2 } from 'lucide-react';
 import { ChatMessage } from '../../types';
 import Button from '../UI/Button';
 import VoiceInput from './VoiceInput';
-import { aiService } from '../../lib/aiService';
+import { aiService } from '../../services/aiService';
 import { useAuth } from '../../hooks/useAuth';
 
 const initialMessages: ChatMessage[] = [

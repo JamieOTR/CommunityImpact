@@ -9,7 +9,7 @@ import VideoGenerator from '../components/Video/VideoGenerator';
 import { useAuth } from '../hooks/useAuth';
 import { useRewards, useAchievements } from '../hooks/useDatabase';
 import { formatDistanceToNow } from 'date-fns';
-import { aiService } from '../lib/aiService';
+import { aiService } from '../services/aiService';
 
 const rarityColors = {
   common: 'border-gray-300 bg-gray-50',

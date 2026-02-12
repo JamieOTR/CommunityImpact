@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { BlockchainService } from '../../lib/blockchain';
+import { BlockchainService } from '../../services/blockchain';
 
 // Mock ethers
 vi.mock('ethers', () => ({

@@ -8,7 +8,7 @@ import RealTimeMetrics from '../components/Dashboard/RealTimeMetrics';
 import AdvancedCharts from '../components/Dashboard/AdvancedCharts';
 import WalletConnect from '../components/Blockchain/WalletConnect';
 import { useAuth } from '../hooks/useAuth';
-import { ensureSampleDataExists } from '../lib/sampleData';
+import { ensureSampleDataExists } from '../services/sampleData';
 
 export default function Dashboard() {
   const { user, loading } = useAuth();

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { databaseService, type User } from '../lib/database';
-import { ensureSampleDataExists } from '../lib/sampleData';
+import { supabase } from '../services/supabase';
+import { databaseService, type User } from '../services/database';
+import { ensureSampleDataExists } from '../services/sampleData';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);

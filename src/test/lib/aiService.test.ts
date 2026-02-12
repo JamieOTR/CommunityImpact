@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { AIService } from '../../lib/aiService';
+import { AIService } from '../../services/aiService';
 
 // Mock Supabase
-vi.mock('../../lib/supabase', () => ({
+vi.mock('../../services/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn(() => ({

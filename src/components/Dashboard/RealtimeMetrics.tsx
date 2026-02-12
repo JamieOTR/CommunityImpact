@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, Target, Zap, RefreshCw } from 'lucide-react';
 import Card from '../UI/Card';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../services/supabase';
 
 interface MetricData {
   totalUsers: number;

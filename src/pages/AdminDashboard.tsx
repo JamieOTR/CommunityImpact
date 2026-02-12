@@ -5,9 +5,9 @@ import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import CommunityReferralManager from '../components/Admin/CommunityReferralManager';
 import AchievementVerification from '../components/Admin/AchievementVerification';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../services/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { databaseService } from '../lib/database';
+import { databaseService } from '../services/database';
 
 interface Community {
   community_id: string;

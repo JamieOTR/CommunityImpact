@@ -1,10 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import AIChat from '../../components/Chat/AIChat';
-import { aiService } from '../../lib/aiService';
+import { aiService } from '../../services/aiService';
 
 // Mock the AI service
-vi.mock('../../lib/aiService', () => ({
+vi.mock('../../services/aiService', () => ({
   aiService: {
     processMessage: vi.fn(),
     generateSpeechResponse: vi.fn(),

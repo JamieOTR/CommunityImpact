@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
 import Button from '../UI/Button';
-import { aiService } from '../../lib/aiService';
+import { aiService } from '../../services/aiService';
 
 interface VoiceInputProps {
   onVoiceMessage: (message: string, isVoice: boolean) => void;

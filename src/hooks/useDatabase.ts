@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { databaseService, type User, type Milestone, type Achievement, type Reward, type Community } from '../lib/database';
+import { databaseService, type User, type Milestone, type Achievement, type Reward, type Community } from '../services/database';
 
 export function useUserData(userId?: string) {
   const [user, setUser] = useState<User | null>(null);

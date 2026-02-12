@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Share2, Copy, Users, QrCode, Mail, MessageSquare, TrendingUp } from 'lucide-react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 
 interface CommunityReferralManagerProps {

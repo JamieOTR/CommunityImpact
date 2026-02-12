@@ -5,7 +5,7 @@ import Card from '../UI/Card';
 import Button from '../UI/Button';
 import ProgressRing from '../UI/ProgressRing';
 import { formatDistanceToNow } from 'date-fns';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 
 const statusColors = {

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Video, Play, Download, RefreshCw, User, MessageSquare } from 'lucide-react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
-import { tavusService, type TavusVideoResponse, type TavusAvatar } from '../../lib/tavusService';
+import { tavusService, type TavusVideoResponse, type TavusAvatar } from '../../services/tavusService';
 
 interface VideoGeneratorProps {
   userName?: string;
