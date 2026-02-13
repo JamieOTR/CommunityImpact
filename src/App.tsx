@@ -11,6 +11,14 @@ import Community from './pages/Community';
 import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
 import ResetPassword from './pages/ResetPassword';
+import NotAuthorized from './pages/NotAuthorized';
+import { ProtectedAdminRoute } from './components/Admin/ProtectedAdminRoute';
+import AdminOverview from './pages/admin/AdminOverview';
+import AdminPrograms from './pages/admin/AdminPrograms';
+import AdminMilestones from './pages/admin/AdminMilestones';
+import AdminSubmissions from './pages/admin/AdminSubmissions';
+import AdminRewards from './pages/admin/AdminRewards';
+import AdminSettings from './pages/admin/AdminSettings';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './services/supabase';
 import { databaseService } from './services/database';
@@ -146,19 +154,40 @@ function App() {
               <Navigate to="/" replace />
             )
           } />
+
+          {/* Not Authorized page */}
+          <Route path="/not-authorized" element={<NotAuthorized />} />
+
+          {/* Protected Admin Routes */}
           <Route path="/admin" element={
-            user ? (
-              <>
-                <Header />
-                <main className="flex-1">
-                  <AdminDashboard />
-                </main>
-                <Footer />
-                <SessionManager />
-              </>
-            ) : (
-              <Navigate to="/" replace />
-            )
+            <ProtectedAdminRoute>
+              <AdminOverview />
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin/programs" element={
+            <ProtectedAdminRoute>
+              <AdminPrograms />
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin/milestones" element={
+            <ProtectedAdminRoute>
+              <AdminMilestones />
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin/submissions" element={
+            <ProtectedAdminRoute>
+              <AdminSubmissions />
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin/rewards" element={
+            <ProtectedAdminRoute>
+              <AdminRewards />
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin/settings" element={
+            <ProtectedAdminRoute>
+              <AdminSettings />
+            </ProtectedAdminRoute>
           } />
 
           {/* Redirect unknown routes */}
