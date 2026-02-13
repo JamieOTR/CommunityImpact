@@ -4,7 +4,7 @@ import ImpactMetrics from '../components/Dashboard/ImpactMetrics';
 import DatabaseMilestones from '../components/Dashboard/DatabaseMilestones';
 import DatabaseTokenBalance from '../components/Dashboard/DatabaseTokenBalance';
 import Leaderboard from '../components/Dashboard/Leaderboard';
-import RealTimeMetrics from '../components/Dashboard/RealTimeMetrics';
+import RealTimeMetrics from '../components/Dashboard/RealtimeMetrics';
 import AdvancedCharts from '../components/Dashboard/AdvancedCharts';
 import WalletConnect from '../components/Blockchain/WalletConnect';
 import { useAuth } from '../hooks/useAuth';
