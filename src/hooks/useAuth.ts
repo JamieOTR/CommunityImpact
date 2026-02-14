@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { databaseService, type User } from '../services/database';
-import { ensureSampleDataExists } from '../services/sampleData';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -14,8 +13,8 @@ export function useAuth() {
       if (session?.user) {
         loadUserData(session.user.id);
       } else {
-        // For demo purposes, create a mock session
-        createDemoSession();
+        // No session - user needs to sign in
+        setLoading(false);
       }
     });
 
@@ -33,22 +32,6 @@ export function useAuth() {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  const createDemoSession = async () => {
-    try {
-      // For demo purposes, we'll create a mock user session
-      // In production, this would be handled by actual authentication
-      const demoUser = await ensureSampleDataExists();
-      if (demoUser) {
-        setUser(demoUser);
-      }
-    } catch (err) {
-      console.error('Error creating demo session:', err);
-      setError('Failed to initialize demo session');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadUserData = async (authUserId: string) => {
     try {
@@ -75,15 +58,6 @@ export function useAuth() {
     try {
       setLoading(true);
       setError(null);
-
-      // For demo purposes, check if it's the demo credentials
-      if (email === 'demo@communityimpact.org' && password === 'demo123') {
-        const demoUser = await ensureSampleDataExists();
-        if (demoUser) {
-          setUser(demoUser);
-          return { success: true };
-        }
-      }
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
