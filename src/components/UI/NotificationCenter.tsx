@@ -149,18 +149,7 @@ export default function NotificationCenter() {
   }
 
   async function dismissNotification(notificationId: string) {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('notification_id', notificationId);
-
-      if (error) throw error;
-
-      await loadNotifications();
-    } catch (error) {
-      console.error('Error dismissing notification:', error);
-    }
+    await markAsRead(notificationId);
   }
 
   function getNotificationIcon(type: string, priority: string) {
