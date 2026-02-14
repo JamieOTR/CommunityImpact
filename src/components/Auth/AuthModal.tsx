@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { X, Mail, Lock, User, Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle, Smartphone, Wifi } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
@@ -12,6 +13,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: AuthModalProps) {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot-password' | 'email-sent'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -62,10 +64,12 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
           setMode('email-sent');
         } else {
           onClose();
+          navigate('/dashboard');
         }
       } else if (mode === 'signin') {
         await signIn(formData.email, formData.password);
         onClose();
+        navigate('/dashboard');
       } else if (mode === 'forgot-password') {
         await resetPassword(formData.email);
         setResetEmailSent(true);
