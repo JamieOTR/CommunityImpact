@@ -298,18 +298,347 @@ ORDER BY created_at DESC;
 
 ---
 
+## Detailed RLS Testing Procedures
+
+### Test Setup Requirements
+
+**Prerequisites**:
+1. Three test accounts with different roles:
+   - **Test Account 1**: Member of Community A
+   - **Test Account 2**: Community Admin of Community B
+   - **Test Account 3**: Super Admin
+
+2. Use seed data utility to populate:
+   - 2 Communities (Green Valley Initiative, Tech for Good Alliance)
+   - 4 Programs (2 per community)
+   - 20 Milestones
+   - 20 Achievements
+   - 20 Rewards
+
+### Test Case 1: Member Data Isolation
+
+**Objective**: Verify members can only access data from their community
+
+**Test Account**: Member (Community A)
+
+**Test Steps**:
+1. Log in as Community A member
+2. Navigate to Dashboard → verify only Community A metrics visible
+3. Navigate to Milestones → verify only Community A programs/milestones shown
+4. Navigate to Community → verify only Community A members listed
+5. Attempt direct database query for Community B data (should fail):
+   ```sql
+   SELECT * FROM achievements WHERE community_id = '<community_b_id>';
+   ```
+
+**Expected Result**:
+- ✅ All queries return only Community A data
+- ✅ RLS policies block access to Community B data
+- ✅ No error messages exposed to user (graceful empty results)
+
+**Status**: ⏳ Pending manual testing
+
+---
+
+### Test Case 2: Community Admin Scoped Access
+
+**Objective**: Verify community admins can manage only their community
+
+**Test Account**: Community Admin (Community B)
+
+**Test Steps**:
+1. Log in as Community B admin
+2. Navigate to Admin Panel → Overview
+3. Verify dashboard shows only Community B stats
+4. Navigate to Admin Panel → Submissions
+5. Verify only Community B member achievements visible
+6. Navigate to Admin Panel → Rewards
+7. Verify only Community B rewards visible
+8. Attempt to approve achievement from Community A (should fail):
+   ```sql
+   UPDATE achievements
+   SET verification_status = 'verified'
+   WHERE achievement_id = '<community_a_achievement_id>';
+   ```
+
+**Expected Result**:
+- ✅ Admin can view/edit all Community B data
+- ✅ Admin cannot view/edit Community A data
+- ✅ RLS policies enforce community scoping
+- ✅ Audit logs record all admin actions
+
+**Status**: ⏳ Pending manual testing
+
+---
+
+### Test Case 3: Super Admin Full Access
+
+**Objective**: Verify super admins can access all communities
+
+**Test Account**: Super Admin
+
+**Test Steps**:
+1. Log in as super admin
+2. Navigate to Admin Panel → Overview
+3. Verify ability to view cross-community stats
+4. Navigate to Admin Panel → Submissions
+5. Filter by Community A → verify submissions visible
+6. Filter by Community B → verify submissions visible
+7. Approve achievement from Community A
+8. Approve achievement from Community B
+9. Verify audit logs show super admin as actor
+
+**Expected Result**:
+- ✅ Super admin can access all community data
+- ✅ Super admin can perform actions across communities
+- ✅ All actions logged with super_admin role
+- ✅ RLS policies allow super admin bypass
+
+**Status**: ⏳ Pending manual testing
+
+---
+
+### Test Case 4: Audit Logging Verification
+
+**Objective**: Verify all critical operations are logged
+
+**Test Steps**:
+1. Perform the following operations:
+   - Approve an achievement (as admin)
+   - Reject an achievement (as admin)
+   - Create a reward (automatically on approval)
+   - Update reward status (as admin)
+   - Update community settings (as admin)
+
+2. Query audit logs:
+   ```sql
+   SELECT
+     audit_id,
+     actor_user_id,
+     action,
+     entity_type,
+     entity_id,
+     before_json,
+     after_json,
+     created_at
+   FROM audit_logs
+   WHERE action IN (
+     'achievement_approved',
+     'achievement_rejected',
+     'reward_created',
+     'reward_status_updated',
+     'community_updated'
+   )
+   ORDER BY created_at DESC
+   LIMIT 20;
+   ```
+
+3. Verify each log entry contains:
+   - `actor_user_id` (who performed action)
+   - `action` (what was done)
+   - `entity_type` and `entity_id` (what was affected)
+   - `before_json` and `after_json` (state changes)
+   - `created_at` (when it happened)
+
+**Expected Result**:
+- ✅ Every critical operation has audit log entry
+- ✅ All required fields populated correctly
+- ✅ State changes captured in JSON fields
+- ✅ Timestamps accurate
+
+**Status**: ⏳ Pending manual testing
+
+---
+
+### Test Case 5: Notification Trigger Verification
+
+**Objective**: Verify notifications created for key events
+
+**Test Account**: Member (any community)
+
+**Test Steps**:
+1. Submit an achievement (as member)
+2. Verify notification created:
+   ```sql
+   SELECT * FROM notifications
+   WHERE user_id = '<member_user_id>'
+   AND type = 'achievement'
+   AND title LIKE '%submitted%'
+   ORDER BY created_at DESC
+   LIMIT 1;
+   ```
+
+3. Approve the achievement (as admin)
+4. Verify notification created:
+   ```sql
+   SELECT * FROM notifications
+   WHERE user_id = '<member_user_id>'
+   AND type = 'verification'
+   AND title LIKE '%approved%'
+   ORDER BY created_at DESC
+   LIMIT 1;
+   ```
+
+5. Reject another achievement (as admin)
+6. Verify notification created with rejection reason:
+   ```sql
+   SELECT * FROM notifications
+   WHERE user_id = '<member_user_id>'
+   AND type = 'verification'
+   AND title LIKE '%rejected%'
+   ORDER BY created_at DESC
+   LIMIT 1;
+   ```
+
+7. Distribute reward (as admin)
+8. Verify notification created:
+   ```sql
+   SELECT * FROM notifications
+   WHERE user_id = '<member_user_id>'
+   AND type = 'reward'
+   ORDER BY created_at DESC
+   LIMIT 1;
+   ```
+
+**Expected Result**:
+- ✅ Notification created for each event
+- ✅ Correct notification type assigned
+- ✅ Title and message populated correctly
+- ✅ User sees notification in UI (unread badge)
+- ✅ Priority set appropriately (urgent for failures)
+
+**Status**: ⏳ Pending manual testing
+
+---
+
+### Test Case 6: Real-Time Updates Verification
+
+**Objective**: Verify real-time subscriptions work correctly
+
+**Test Setup**: Open two browser windows side-by-side
+
+**Test Steps**:
+1. **Window 1**: Log in as admin, open Submissions page
+2. **Window 2**: Log in as member, open Milestones page
+3. **Window 2**: Submit an achievement
+4. **Window 1**: Verify new submission appears without refresh
+   - Check live indicator shows "Connected"
+   - Verify submission appears in list
+5. **Window 1**: Approve the submission
+6. **Window 2**: Verify metrics update without refresh
+   - Check token balance increased
+   - Check milestones completed incremented
+7. **Window 1**: Distribute reward
+8. **Window 2**: Verify reward notification appears immediately
+
+**Expected Result**:
+- ✅ Real-time updates work across both windows
+- ✅ No manual refresh required
+- ✅ Live indicators show connection status
+- ✅ Updates appear within 1-2 seconds
+
+**Status**: ⏳ Pending manual testing
+
+---
+
+### Test Case 7: Security Boundary Testing
+
+**Objective**: Verify RLS policies prevent unauthorized access
+
+**Test Steps**:
+1. Attempt to query another community's data directly:
+   ```sql
+   -- As Community A member
+   SELECT * FROM achievements
+   WHERE community_id = '<community_b_id>';
+   ```
+   **Expected**: 0 rows returned (policy blocks)
+
+2. Attempt to update another community's achievement:
+   ```sql
+   -- As Community B admin
+   UPDATE achievements
+   SET verification_status = 'verified'
+   WHERE community_id = '<community_a_id>'
+   AND achievement_id = '<achievement_id>';
+   ```
+   **Expected**: 0 rows affected (policy blocks)
+
+3. Attempt to view another community's users:
+   ```sql
+   -- As Community A admin
+   SELECT * FROM users
+   WHERE community_id = '<community_b_id>';
+   ```
+   **Expected**: 0 rows returned (policy blocks)
+
+4. Attempt to create reward for another community:
+   ```sql
+   -- As Community A admin
+   INSERT INTO rewards (user_id, achievement_id, token_amount, token_type, status)
+   VALUES ('<community_b_user_id>', '<achievement_id>', 100, 'IMPACT', 'pending');
+   ```
+   **Expected**: Insert fails (policy blocks)
+
+**Expected Result**:
+- ✅ All unauthorized operations blocked
+- ✅ No error messages expose security details
+- ✅ Audit logs do NOT record blocked attempts (never reached DB)
+- ✅ RLS policies enforce at database level
+
+**Status**: ⏳ Pending manual testing
+
+---
+
+## Test Results Summary
+
+### Tests to Execute
+
+| Test Case | Status | Priority | Estimated Time |
+|-----------|--------|----------|----------------|
+| Test 1: Member Data Isolation | ⏳ Pending | High | 15 min |
+| Test 2: Community Admin Scope | ⏳ Pending | High | 15 min |
+| Test 3: Super Admin Access | ⏳ Pending | High | 10 min |
+| Test 4: Audit Logging | ⏳ Pending | Critical | 20 min |
+| Test 5: Notification Triggers | ⏳ Pending | High | 20 min |
+| Test 6: Real-Time Updates | ⏳ Pending | Medium | 15 min |
+| Test 7: Security Boundaries | ⏳ Pending | Critical | 20 min |
+
+**Total Test Time**: ~2 hours
+
+### Test Execution Instructions
+
+1. **Setup Phase** (15 min):
+   - Create 3 test accounts with appropriate roles
+   - Run seed data utility to populate database
+   - Open test tracking spreadsheet
+
+2. **Execution Phase** (2 hours):
+   - Execute each test case in order
+   - Record results (✅ Pass / ❌ Fail)
+   - Capture screenshots for evidence
+   - Note any issues or deviations
+
+3. **Documentation Phase** (30 min):
+   - Update this document with results
+   - File bug reports for any failures
+   - Create remediation tasks for frontend fixes
+
+---
+
 ## Known Limitations & Future Enhancements
 
 ### Current Limitations
-1. **Notification UI**: Database functional, frontend UI pending
-2. **Reward Retry Logic**: Database fields present, retry workflow UI pending
-3. **Audit Log Viewer**: Data captured, admin viewer UI pending
+1. **Reward Retry Logic**: Database fields present, retry workflow UI pending
+2. **Audit Log Viewer**: Data captured, admin viewer UI pending
+3. **Program Member Enrollment**: Database ready, UI pending
 
 ### Recommended Next Steps
-1. **Phase 1 (Immediate)**:
-   - Add notification center component to header
-   - Implement notification badge with unread count
-   - Add notification list with mark-as-read
+1. **Phase 1 (Immediate)** - ✅ COMPLETED:
+   - ✅ Add notification center component to header
+   - ✅ Implement notification badge with unread count
+   - ✅ Add notification list with mark-as-read, dismiss, and priority indicators
+   - ✅ Real-time notification updates via Supabase subscriptions
 
 2. **Phase 2 (Short-term)**:
    - Build audit log viewer for community admins

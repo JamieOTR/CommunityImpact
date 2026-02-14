@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   Users,
+  Database,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -23,6 +24,7 @@ const navItems = [
   { to: '/admin/submissions', icon: CheckSquare, label: 'Submissions' },
   { to: '/admin/rewards', icon: Coins, label: 'Rewards Queue' },
   { to: '/admin/settings', icon: Settings, label: 'Community Settings' },
+  { to: '/admin/seed-data', icon: Database, label: 'Seed Demo Data' },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {

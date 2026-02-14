@@ -1,10 +1,11 @@
 import React, { Fragment, useState } from 'react';
 import { Menu, Transition } from '@headlessui/react';
-import { Bell, Settings, LogOut, User, Wallet, ChevronDown, Shield, LogIn } from 'lucide-react';
+import { Settings, LogOut, User, Wallet, ChevronDown, Shield, LogIn } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import AuthModal from '../Auth/AuthModal';
 import Button from '../UI/Button';
+import NotificationCenter from '../UI/NotificationCenter';
 import clsx from 'clsx';
 
 const navigation = [
@@ -71,10 +72,7 @@ export default function Header() {
                   </Link>
 
                   {/* Notifications */}
-                  <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500"></span>
-                  </button>
+                  <NotificationCenter />
 
                   {/* Wallet Status */}
                   {user.wallet_address && (

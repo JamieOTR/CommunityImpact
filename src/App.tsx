@@ -19,6 +19,7 @@ import AdminMilestones from './pages/admin/AdminMilestones';
 import AdminSubmissions from './pages/admin/AdminSubmissions';
 import AdminRewards from './pages/admin/AdminRewards';
 import AdminSettings from './pages/admin/AdminSettings';
+import AdminSeedData from './pages/admin/AdminSeedData';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './services/supabase';
 import { databaseService } from './services/database';
@@ -187,6 +188,11 @@ function App() {
           <Route path="/admin/settings" element={
             <ProtectedAdminRoute>
               <AdminSettings />
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin/seed-data" element={
+            <ProtectedAdminRoute>
+              <AdminSeedData />
             </ProtectedAdminRoute>
           } />
 
