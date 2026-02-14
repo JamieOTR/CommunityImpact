@@ -32,8 +32,8 @@ function App() {
     // Handle email confirmation when user returns from email link
     const handleEmailConfirmation = async () => {
       const { data, error } = await supabase.auth.getSession();
-      
-      if (data.session?.user && !user) {
+
+      if (data.session?.user) {
         // User just confirmed their email, create their profile if it doesn't exist
         try {
           const existingUser = await databaseService.getCurrentUser();
@@ -53,7 +53,7 @@ function App() {
     };
 
     handleEmailConfirmation();
-  }, [user]);
+  }, []);
 
   if (loading) {
     return (
