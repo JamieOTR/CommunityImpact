@@ -4,6 +4,7 @@ import Header from './components/Layout/Header';
 import Footer from './components/Layout/Footer';
 import SessionManager from './components/Auth/SessionManager';
 import AIChat from './components/Chat/AIChat';
+import EnvironmentBanner from './components/UI/EnvironmentBanner';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Milestones from './pages/Milestones';
@@ -68,6 +69,7 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
+        <EnvironmentBanner />
         <Routes>
           {/* Landing page without header/footer */}
           <Route path="/" element={<Landing />} />

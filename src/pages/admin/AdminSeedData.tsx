@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Database, AlertTriangle, CheckCircle, Loader } from 'lucide-react';
+import { Database, AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
 import { supabase } from '../../services/supabase';
@@ -18,6 +18,7 @@ interface SeedResult {
 
 export default function AdminSeedData() {
   const [seeding, setSeeding] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [result, setResult] = useState<SeedResult | null>(null);
 
   async function handleSeedData() {
@@ -302,6 +303,136 @@ export default function AdminSeedData() {
     }
   }
 
+  async function handleResetDemoData() {
+    if (!confirm('⚠️ WARNING: This will DELETE all demo data and re-seed fresh data.\n\nThis includes:\n- Demo communities (Green Valley Initiative, Tech for Good Alliance)\n- All associated programs, milestones, achievements, and rewards\n\nContinue?')) {
+      return;
+    }
+
+    setResetting(true);
+    setResult(null);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: currentUser } = await supabase
+        .from('users')
+        .select('user_id, is_admin, role')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (!currentUser?.is_admin) {
+        throw new Error('Admin access required');
+      }
+
+      if (currentUser.role !== 'super_admin') {
+        throw new Error('Super admin access required for reset operations');
+      }
+
+      let deletedCounts = {
+        rewards: 0,
+        achievements: 0,
+        milestones: 0,
+        programs: 0,
+        communities: 0,
+      };
+
+      const { data: demoCommunities } = await supabase
+        .from('communities')
+        .select('community_id, name')
+        .or('name.eq.Green Valley Initiative,name.eq.Tech for Good Alliance');
+
+      if (demoCommunities && demoCommunities.length > 0) {
+        const communityIds = demoCommunities.map(c => c.community_id);
+
+        const { data: demoPrograms } = await supabase
+          .from('programs')
+          .select('program_id')
+          .in('community_id', communityIds);
+
+        if (demoPrograms && demoPrograms.length > 0) {
+          const programIds = demoPrograms.map(p => p.program_id);
+
+          const { data: demoMilestones } = await supabase
+            .from('milestones')
+            .select('milestone_id')
+            .in('program_id', programIds);
+
+          if (demoMilestones && demoMilestones.length > 0) {
+            const milestoneIds = demoMilestones.map(m => m.milestone_id);
+
+            const { data: demoAchievements } = await supabase
+              .from('achievements')
+              .select('achievement_id')
+              .in('milestone_id', milestoneIds);
+
+            if (demoAchievements && demoAchievements.length > 0) {
+              const achievementIds = demoAchievements.map(a => a.achievement_id);
+
+              const { error: rewardsError, count: rewardsCount } = await supabase
+                .from('rewards')
+                .delete({ count: 'exact' })
+                .in('achievement_id', achievementIds);
+
+              if (rewardsError) throw rewardsError;
+              deletedCounts.rewards = rewardsCount || 0;
+            }
+
+            const { error: achievementsError, count: achievementsCount } = await supabase
+              .from('achievements')
+              .delete({ count: 'exact' })
+              .in('milestone_id', milestoneIds);
+
+            if (achievementsError) throw achievementsError;
+            deletedCounts.achievements = achievementsCount || 0;
+          }
+
+          const { error: milestonesError, count: milestonesCount } = await supabase
+            .from('milestones')
+            .delete({ count: 'exact' })
+            .in('program_id', programIds);
+
+          if (milestonesError) throw milestonesError;
+          deletedCounts.milestones = milestonesCount || 0;
+
+          const { error: programsError, count: programsCount } = await supabase
+            .from('programs')
+            .delete({ count: 'exact' })
+            .in('program_id', programIds);
+
+          if (programsError) throw programsError;
+          deletedCounts.programs = programsCount || 0;
+        }
+
+        const { error: communitiesError, count: communitiesCount } = await supabase
+          .from('communities')
+          .delete({ count: 'exact' })
+          .in('community_id', communityIds);
+
+        if (communitiesError) throw communitiesError;
+        deletedCounts.communities = communitiesCount || 0;
+      }
+
+      setResult({
+        success: true,
+        message: `Deleted ${deletedCounts.communities} communities, ${deletedCounts.programs} programs, ${deletedCounts.milestones} milestones, ${deletedCounts.achievements} achievements, ${deletedCounts.rewards} rewards. Re-seeding...`,
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      await handleSeedData();
+
+    } catch (error: any) {
+      console.error('Reset error:', error);
+      setResult({
+        success: false,
+        message: error.message || 'Failed to reset demo data',
+      });
+    } finally {
+      setResetting(false);
+    }
+  }
+
   return (
     <div>
       <div className="mb-8">
@@ -349,23 +480,43 @@ export default function AdminSeedData() {
             Click the button below to populate the database with demo data. This action can be run multiple times.
           </p>
 
-          <Button
-            onClick={handleSeedData}
-            disabled={seeding}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {seeding ? (
-              <>
-                <Loader className="w-4 h-4 mr-2 animate-spin" />
-                Seeding Data...
-              </>
-            ) : (
-              <>
-                <Database className="w-4 h-4 mr-2" />
-                Seed Demo Data
-              </>
-            )}
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              onClick={handleSeedData}
+              disabled={seeding || resetting}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {seeding ? (
+                <>
+                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                  Seeding Data...
+                </>
+              ) : (
+                <>
+                  <Database className="w-4 h-4 mr-2" />
+                  Seed Demo Data
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={handleResetDemoData}
+              disabled={seeding || resetting}
+              className="bg-red-600 hover:bg-red-700 text-white border-red-600"
+            >
+              {resetting ? (
+                <>
+                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Reset Demo Data
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </Card>
 
