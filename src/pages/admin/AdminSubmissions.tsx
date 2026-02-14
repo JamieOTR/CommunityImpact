@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, Clock, ExternalLink, User } from 'lucide-react';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
+import LiveIndicator from '../../components/UI/LiveIndicator';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface Submission {
   achievement_id: string;
@@ -32,12 +34,26 @@ export default function AdminSubmissions() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isLive, setIsLive] = useState(false);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const communityIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadSubmissions();
   }, [user, filter]);
 
-  async function loadSubmissions() {
+  useEffect(() => {
+    setupRealtimeSubscription();
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [user, filter]);
+
+  const loadSubmissions = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -52,7 +68,8 @@ export default function AdminSubmissions() {
         return;
       }
 
-      // Get all users in the community
+      communityIdRef.current = userData.community_id;
+
       const { data: communityUsers } = await supabase
         .from('users')
         .select('user_id')
@@ -65,7 +82,6 @@ export default function AdminSubmissions() {
         return;
       }
 
-      // Get achievements with user and milestone details
       let query = supabase
         .from('achievements')
         .select(`
@@ -90,7 +106,48 @@ export default function AdminSubmissions() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, filter]);
+
+  const setupRealtimeSubscription = useCallback(async () => {
+    if (!user || !communityIdRef.current) return;
+
+    if (channelRef.current) {
+      await supabase.removeChannel(channelRef.current);
+    }
+
+    const channel = supabase
+      .channel(`admin-submissions-${communityIdRef.current}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'achievements',
+        },
+        async (payload) => {
+          console.log('Achievement change detected:', payload);
+          await loadSubmissions();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsLive(true);
+          console.log('Subscribed to achievements changes');
+        } else if (status === 'CHANNEL_ERROR') {
+          setIsLive(false);
+          console.error('Subscription error');
+          setTimeout(setupRealtimeSubscription, 5000);
+        } else if (status === 'TIMED_OUT') {
+          setIsLive(false);
+          console.error('Subscription timed out');
+          setTimeout(setupRealtimeSubscription, 5000);
+        } else if (status === 'CLOSED') {
+          setIsLive(false);
+        }
+      });
+
+    channelRef.current = channel;
+  }, [user, loadSubmissions]);
 
   async function handleVerify(achievementId: string, approved: boolean) {
     setProcessingId(achievementId);
@@ -163,12 +220,17 @@ export default function AdminSubmissions() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">
-          Achievement Submissions
-        </h1>
-        <p className="text-slate-600">
-          Review and verify member achievement submissions
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+              Achievement Submissions
+            </h1>
+            <p className="text-slate-600">
+              Review and verify member achievement submissions
+            </p>
+          </div>
+          <LiveIndicator isConnected={isLive} />
+        </div>
       </div>
 
       {/* Filters */}

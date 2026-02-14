@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Coins, User, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
+import LiveIndicator from '../../components/UI/LiveIndicator';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface Reward {
   reward_id: string;
@@ -28,12 +30,26 @@ export default function AdminRewards() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isLive, setIsLive] = useState(false);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const communityIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadRewards();
   }, [user, filter]);
 
-  async function loadRewards() {
+  useEffect(() => {
+    setupRealtimeSubscription();
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [user, filter]);
+
+  const loadRewards = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -48,7 +64,8 @@ export default function AdminRewards() {
         return;
       }
 
-      // Get all users in the community
+      communityIdRef.current = userData.community_id;
+
       const { data: communityUsers } = await supabase
         .from('users')
         .select('user_id')
@@ -61,7 +78,6 @@ export default function AdminRewards() {
         return;
       }
 
-      // Get rewards with user details
       let query = supabase
         .from('rewards')
         .select(`
@@ -85,7 +101,48 @@ export default function AdminRewards() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, filter]);
+
+  const setupRealtimeSubscription = useCallback(async () => {
+    if (!user || !communityIdRef.current) return;
+
+    if (channelRef.current) {
+      await supabase.removeChannel(channelRef.current);
+    }
+
+    const channel = supabase
+      .channel(`admin-rewards-${communityIdRef.current}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rewards',
+        },
+        async (payload) => {
+          console.log('Reward change detected:', payload);
+          await loadRewards();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsLive(true);
+          console.log('Subscribed to rewards changes');
+        } else if (status === 'CHANNEL_ERROR') {
+          setIsLive(false);
+          console.error('Subscription error');
+          setTimeout(setupRealtimeSubscription, 5000);
+        } else if (status === 'TIMED_OUT') {
+          setIsLive(false);
+          console.error('Subscription timed out');
+          setTimeout(setupRealtimeSubscription, 5000);
+        } else if (status === 'CLOSED') {
+          setIsLive(false);
+        }
+      });
+
+    channelRef.current = channel;
+  }, [user, loadRewards]);
 
   async function handleDistribute(rewardId: string) {
     setProcessingId(rewardId);
@@ -173,25 +230,30 @@ export default function AdminRewards() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Rewards Queue
-          </h1>
-          <p className="text-slate-600">
-            Manage and distribute token rewards to members
-          </p>
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+              Rewards Queue
+            </h1>
+            <p className="text-slate-600">
+              Manage and distribute token rewards to members
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <LiveIndicator isConnected={isLive} />
+            {pendingCount > 0 && (
+              <Button
+                onClick={handleDistributeAll}
+                disabled={processingId === 'all'}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Coins className="w-4 h-4 mr-2" />
+                Distribute All ({pendingCount})
+              </Button>
+            )}
+          </div>
         </div>
-        {pendingCount > 0 && (
-          <Button
-            onClick={handleDistributeAll}
-            disabled={processingId === 'all'}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Coins className="w-4 h-4 mr-2" />
-            Distribute All ({pendingCount})
-          </Button>
-        )}
       </div>
 
       {/* Stats */}
