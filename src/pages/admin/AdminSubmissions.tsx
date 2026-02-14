@@ -14,9 +14,15 @@ interface Submission {
   completed_at: string;
   evidence_url: string | null;
   evidence_hash: string | null;
+  evidence_payload?: any;
   verification_status: string;
   progress: number;
   status: string;
+  verified_by?: string;
+  verified_at?: string;
+  rejection_reason?: string;
+  admin_notes?: string;
+  risk_score?: number;
   user?: {
     name: string;
     email: string;
@@ -25,6 +31,9 @@ interface Submission {
     title: string;
     reward_amount: number;
     reward_token: string;
+  };
+  verifier?: {
+    name: string;
   };
 }
 
@@ -35,8 +44,13 @@ export default function AdminSubmissions() {
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedAchievement, setSelectedAchievement] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [adminNotes, setAdminNotes] = useState('');
   const channelRef = useRef<RealtimeChannel | null>(null);
   const communityIdRef = useRef<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadSubmissions();
@@ -59,7 +73,7 @@ export default function AdminSubmissions() {
     try {
       const { data: userData } = await supabase
         .from('users')
-        .select('community_id')
+        .select('community_id, user_id')
         .eq('auth_user_id', user.id)
         .maybeSingle();
 
@@ -69,6 +83,7 @@ export default function AdminSubmissions() {
       }
 
       communityIdRef.current = userData.community_id;
+      currentUserIdRef.current = userData.user_id;
 
       const { data: communityUsers } = await supabase
         .from('users')
@@ -87,7 +102,8 @@ export default function AdminSubmissions() {
         .select(`
           *,
           users:user_id (name, email),
-          milestones:milestone_id (title, reward_amount, reward_token)
+          milestones:milestone_id (title, reward_amount, reward_token),
+          verifier:verified_by (name)
         `)
         .in('user_id', userIds)
         .order('completed_at', { ascending: false });
@@ -149,44 +165,93 @@ export default function AdminSubmissions() {
     channelRef.current = channel;
   }, [user, loadSubmissions]);
 
-  async function handleVerify(achievementId: string, approved: boolean) {
+  async function handleApprove(achievementId: string) {
+    if (!currentUserIdRef.current) {
+      alert('User information not loaded. Please refresh the page.');
+      return;
+    }
+
     setProcessingId(achievementId);
 
     try {
       const { error: updateError } = await supabase
         .from('achievements')
         .update({
-          verification_status: approved ? 'verified' : 'rejected',
-          status: approved ? 'completed' : 'available',
+          verification_status: 'verified',
+          status: 'completed',
+          verified_by: currentUserIdRef.current,
+          verified_at: new Date().toISOString(),
         })
         .eq('achievement_id', achievementId);
 
       if (updateError) throw updateError;
 
-      // If approved, create a reward
-      if (approved) {
-        const submission = submissions.find(s => s.achievement_id === achievementId);
-        if (submission) {
-          const { error: rewardError } = await supabase
-            .from('rewards')
-            .insert({
-              user_id: submission.user_id,
-              achievement_id: achievementId,
-              token_amount: submission.milestone?.reward_amount || 0,
-              token_type: submission.milestone?.reward_token || 'IMPACT',
-              status: 'pending',
-              description: `Reward for: ${submission.milestone?.title}`,
-            });
+      const submission = submissions.find(s => s.achievement_id === achievementId);
+      if (submission) {
+        const { error: rewardError } = await supabase
+          .from('rewards')
+          .insert({
+            user_id: submission.user_id,
+            achievement_id: achievementId,
+            token_amount: submission.milestone?.reward_amount || 0,
+            token_type: submission.milestone?.reward_token || 'IMPACT',
+            status: 'pending',
+            description: `Reward for: ${submission.milestone?.title}`,
+            approved_by: currentUserIdRef.current,
+            approved_at: new Date().toISOString(),
+          });
 
-          if (rewardError) throw rewardError;
-        }
+        if (rewardError) throw rewardError;
       }
 
-      // Reload submissions
       await loadSubmissions();
     } catch (error) {
-      console.error('Error processing submission:', error);
-      alert('Failed to process submission. Please try again.');
+      console.error('Error approving submission:', error);
+      alert('Failed to approve submission. Please try again.');
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  function openRejectModal(achievementId: string) {
+    setSelectedAchievement(achievementId);
+    setRejectionReason('');
+    setAdminNotes('');
+    setShowRejectModal(true);
+  }
+
+  async function handleReject() {
+    if (!selectedAchievement || !currentUserIdRef.current) return;
+    if (!rejectionReason.trim()) {
+      alert('Please provide a rejection reason.');
+      return;
+    }
+
+    setProcessingId(selectedAchievement);
+
+    try {
+      const { error: updateError } = await supabase
+        .from('achievements')
+        .update({
+          verification_status: 'rejected',
+          status: 'available',
+          verified_by: currentUserIdRef.current,
+          verified_at: new Date().toISOString(),
+          rejection_reason: rejectionReason.trim(),
+          admin_notes: adminNotes.trim() || null,
+        })
+        .eq('achievement_id', selectedAchievement);
+
+      if (updateError) throw updateError;
+
+      setShowRejectModal(false);
+      setSelectedAchievement(null);
+      setRejectionReason('');
+      setAdminNotes('');
+      await loadSubmissions();
+    } catch (error) {
+      console.error('Error rejecting submission:', error);
+      alert('Failed to reject submission. Please try again.');
     } finally {
       setProcessingId(null);
     }
@@ -336,15 +401,15 @@ export default function AdminSubmissions() {
                 {submission.verification_status === 'pending' && (
                   <div className="flex items-center space-x-2 ml-4">
                     <Button
-                      onClick={() => handleVerify(submission.achievement_id, true)}
+                      onClick={() => handleApprove(submission.achievement_id)}
                       disabled={processingId === submission.achievement_id}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
-                      Approve
+                      {processingId === submission.achievement_id ? 'Processing...' : 'Approve'}
                     </Button>
                     <Button
-                      onClick={() => handleVerify(submission.achievement_id, false)}
+                      onClick={() => openRejectModal(submission.achievement_id)}
                       disabled={processingId === submission.achievement_id}
                       className="bg-red-600 hover:bg-red-700 text-white"
                     >
@@ -353,9 +418,106 @@ export default function AdminSubmissions() {
                     </Button>
                   </div>
                 )}
+
+                {submission.verification_status !== 'pending' && (
+                  <div className="ml-4 text-sm text-slate-600">
+                    {submission.verified_by && submission.verifier && (
+                      <div className="mb-1">
+                        Verified by: <span className="font-medium">{submission.verifier.name}</span>
+                      </div>
+                    )}
+                    {submission.verified_at && (
+                      <div className="mb-1">
+                        {new Date(submission.verified_at).toLocaleDateString()} at{' '}
+                        {new Date(submission.verified_at).toLocaleTimeString()}
+                      </div>
+                    )}
+                    {submission.rejection_reason && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-red-800">
+                        <span className="font-medium">Reason:</span> {submission.rejection_reason}
+                      </div>
+                    )}
+                    {submission.admin_notes && (
+                      <div className="mt-2 p-2 bg-slate-50 rounded text-slate-700">
+                        <span className="font-medium">Notes:</span> {submission.admin_notes}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+            <h3 className="text-xl font-bold text-slate-900 mb-4">
+              Reject Achievement Submission
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="rejection-reason" className="block text-sm font-medium text-slate-700 mb-2">
+                  Rejection Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="rejection-reason"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Explain why this submission is being rejected..."
+                  required
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  This will be shown to the user
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="admin-notes" className="block text-sm font-medium text-slate-700 mb-2">
+                  Admin Notes (Optional)
+                </label>
+                <textarea
+                  id="admin-notes"
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Internal notes for admins only..."
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  For internal use only, not visible to user
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 mt-6">
+              <Button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setSelectedAchievement(null);
+                  setRejectionReason('');
+                  setAdminNotes('');
+                }}
+                disabled={processingId !== null}
+                className="bg-slate-200 hover:bg-slate-300 text-slate-800"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleReject}
+                disabled={processingId !== null || !rejectionReason.trim()}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                <XCircle className="w-4 h-4 mr-1" />
+                {processingId ? 'Rejecting...' : 'Reject Submission'}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
