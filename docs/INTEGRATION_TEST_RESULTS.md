@@ -8,6 +8,53 @@ Successfully integrated the upgraded database schema with the frontend applicati
 
 ---
 
+## 🔧 RLS Recursion Fix (2026-02-15)
+
+### Issue Resolved: Postgres Error 42P17 (Infinite Recursion)
+
+**Problem**: Login failures caused by recursive RLS policies on `public.users` table. The policies were querying the `users` table within policies applied to the `users` table, creating infinite recursion.
+
+**Solution Implemented**: ✅ COMPLETED
+
+1. **Created Safe Helper Functions** (Migration: `20260215000001_safe_helper_functions_no_rls_recursion.sql`)
+   - `current_user_role()` - Returns user role without triggering RLS
+   - `current_user_community_id()` - Returns user community without triggering RLS
+   - `is_super_admin()` - Checks super admin status safely
+   - `is_community_admin()` - Checks community admin status safely
+   - All functions use `SECURITY DEFINER` with `row_security = off` to bypass RLS internally
+
+2. **Rewrote Users Table RLS Policies** (Migration: `20260215000002_fix_users_rls_policies_no_recursion.sql`)
+   - Removed all recursive policies that referenced `users` table
+   - Created new non-recursive policies using safe helper functions
+   - Policies now use `auth.uid()` for user access and safe helpers for admin access
+   - RLS remains enabled and enforces proper security
+
+3. **Added Auto-Profile Creation Trigger** (Migration: `20260215000003_add_auto_user_profile_creation_trigger.sql`)
+   - Automatically creates `public.users` row when `auth.users` row is created
+   - Prevents missing profile errors during login
+   - Uses `SECURITY DEFINER` to bypass RLS when creating profiles
+
+**Verification Results**:
+- ✅ No more 42P17 recursion errors in database logs
+- ✅ Login flows work end-to-end for all user types
+- ✅ User profile queries succeed without recursion: `GET /rest/v1/users?select=*&auth_user_id=eq.<uid>`
+- ✅ RLS security maintained - policies still enforce proper access control
+- ✅ All helper functions granted to `authenticated` role only
+
+**Test Confirmation**:
+```sql
+-- This query now works without recursion errors:
+SELECT * FROM users WHERE auth_user_id = auth.uid();
+
+-- Helper functions work correctly:
+SELECT current_user_role();
+SELECT current_user_community_id();
+SELECT is_super_admin();
+SELECT is_community_admin();
+```
+
+---
+
 ## Stabilization Sprint Validation Summary (2026-02-14)
 
 ### Automated Validation ✅ COMPLETED
