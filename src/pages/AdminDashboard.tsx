@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Settings, Plus, Share2, BarChart3, Award, Target, Coins } from 'lucide-react';
+import { Users, Settings, Plus, Share2, BarChart3, Award, Target, Coins, Download } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import CommunityReferralManager from '../components/Admin/CommunityReferralManager';
 import AchievementVerification from '../components/Admin/AchievementVerification';
+import { DataExportManager } from '../components/Admin/DataExportManager';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { databaseService } from '../services/database';
@@ -189,6 +190,16 @@ export default function AdminDashboard() {
           className="mb-8"
         >
           <AchievementVerification />
+        </motion.div>
+
+        {/* Data Export Manager */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="mb-8"
+        >
+          <DataExportManager />
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
